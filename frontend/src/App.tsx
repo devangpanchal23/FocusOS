@@ -27,6 +27,16 @@ import { CommunityPage } from './pages/CommunityPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { DeveloperPage } from './pages/DeveloperPage';
 
+// Version 4 Autonomous Operating System Pages
+import { PersonalOsPage } from './pages/v4/PersonalOsPage';
+import { AgentsStudioPage } from './pages/v4/AgentsStudioPage';
+import { WorkflowStudioPage } from './pages/v4/WorkflowStudioPage';
+import { KnowledgeHubPage } from './pages/v4/KnowledgeHubPage';
+import { SimulationsPage } from './pages/v4/SimulationsPage';
+import { ReflectionsPage } from './pages/v4/ReflectionsPage';
+import { EcosystemPage } from './pages/v4/EcosystemPage';
+import { PlatformEnterprisePage } from './pages/v4/PlatformEnterprisePage';
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token, isLoading } = useAuth();
 
@@ -54,9 +64,83 @@ export const App: React.FC = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
+          {/* Version 4 Operating System Routes */}
+          <Route
+            path="/os"
+            element={
+              <ProtectedRoute>
+                <PersonalOsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/agents"
+            element={
+              <ProtectedRoute>
+                <AgentsStudioPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/workflows"
+            element={
+              <ProtectedRoute>
+                <WorkflowStudioPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/knowledge"
+            element={
+              <ProtectedRoute>
+                <KnowledgeHubPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/simulations"
+            element={
+              <ProtectedRoute>
+                <SimulationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reflections"
+            element={
+              <ProtectedRoute>
+                <ReflectionsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ecosystem"
+            element={
+              <ProtectedRoute>
+                <EcosystemPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/platform"
+            element={
+              <ProtectedRoute>
+                <PlatformEnterprisePage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Core V1 Routes */}
           <Route
             path="/"
+            element={
+              <ProtectedRoute>
+                <PersonalOsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <DashboardPage />

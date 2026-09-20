@@ -49,6 +49,22 @@ model User {
   apiKeys            ApiKey[]
   webhookSubs        WebhookSubscription[]
   privacyAuditLogs   PrivacyAuditLog[]
+
+  // Version 4 Autonomous Platform Relations
+  agentLogs          AiAgentLog[]
+  approvalRequests   ActionApprovalRequest[]
+  workflows          AiWorkflow[]
+  workflowRuns       AiWorkflowExecution[]
+  personalContexts   PersonalContext[]
+  knowledgeItems     KnowledgeItem[]
+  simulations        SimulationScenario[]
+  adaptiveModel      AdaptiveProductivityModel?
+  reflections        ReflectionEntry[]
+  syncQueueItems     SyncQueueItem[]
+  integrations       IntegrationApp[]
+  subscription       SubscriptionTier?
+  invoices           BillingInvoice[]
+  governanceAudits   AiGovernanceAudit[]
 }
 
 model Profile {
@@ -504,6 +520,7 @@ model Organization {
 
   teams     Team[]
   members   OrgMember[]
+  policies  EnterprisePolicy[]
 }
 
 model Team {
@@ -561,4 +578,273 @@ model PrivacyAuditLog {
   details   String
   createdAt DateTime @default(now())
 }
+
+// ==========================================
+// VERSION 4 MODELS — AUTONOMOUS INTELLIGENCE & PLATFORM
+// ==========================================
+
+model AiAgentLog {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agentType       String   // ORCHESTRATOR, PRODUCTIVITY, FOCUS, WELLNESS, PLANNING, ANALYTICS, AUTOMATION
+  userQuery       String
+  intentDetected  String
+  subAgentsUsed   String   // JSON array of subagents invoked
+  executionMs     Int
+  tokensEstimated Int      @default(150)
+  status          String   @default("SUCCESS") // SUCCESS, REFINED, FAILED
+  resultPreview   String
+  createdAt       DateTime @default(now())
+}
+
+model ActionApprovalRequest {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actionType      String    // BLOCK_RULE_UPDATE, CALENDAR_EVENT_CREATE, GOAL_ADJUSTMENT, ROUTINE_OVERRIDE, SYSTEM_SETTING
+  riskLevel       String    @default("HIGH_IMPACT") // READ_ONLY, LOW_RISK, HIGH_IMPACT
+  title           String
+  description     String
+  previewData     String    // JSON string showing before/after or payload details
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED, EXECUTED
+  requestedBy     String    @default("AI_ORCHESTRATOR") // AI_ORCHESTRATOR, WORKFLOW_ENGINE, ADAPTIVE_MODEL
+  executedAt      DateTime?
+  resultSummary   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model AiWorkflow {
+  id              String                @id @default(uuid())
+  userId          String
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  description     String
+  triggerType     String                // SCHEDULED_CRON, SCREEN_TIME_THRESHOLD, FOCUS_COMPLETED, RISK_TRIGGERED, MANUAL
+  triggerConfig   String                // JSON: { cron: "0 20 * * 0", thresholdMinutes: 180, etc }
+  nodesJson       String                // JSON array of workflow visual nodes
+  edgesJson       String                // JSON array of connections
+  isEnabled       Boolean               @default(true)
+  lastRunAt       DateTime?
+  lastRunStatus   String?               // SUCCESS, PENDING_APPROVAL, FAILED
+  runCount        Int                   @default(0)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  executions      AiWorkflowExecution[]
+}
+
+model AiWorkflowExecution {
+  id              String      @id @default(uuid())
+  workflowId      String
+  workflow        AiWorkflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status          String      @default("COMPLETED") // COMPLETED, PENDING_APPROVAL, FAILED
+  stepsLogJson    String      // JSON array of step-by-step logs with timestamps and outputs
+  durationMs      Int         @default(450)
+  startedAt       DateTime    @default(now())
+  completedAt     DateTime?
+}
+
+model PersonalContext {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contextType     String    // SHORT_TERM, LONG_TERM, BEHAVIORAL, GOAL, SCHEDULE
+  sourceType      String    // OBSERVED_DATA, USER_PREFERENCE, AI_ASSUMPTION
+  key             String    // e.g. "peak_focus_window", "preferred_break_duration", "distraction_trigger"
+  value           String    // e.g. "09:30 - 11:45", "7 minutes", "Instagram after 9 PM"
+  confidence      Float     @default(1.0) // 0.0 - 1.0 (1.0 for user-provided/observed, 0.6-0.9 for assumptions)
+  evidence        String?
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([userId, key])
+}
+
+model KnowledgeItem {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category        String    // NOTE, GOAL, PLAN, REFLECTION, STRATEGY, RULE
+  title           String
+  content         String
+  tags            String    @default("[]") // JSON array of strings
+  isPinned        Boolean   @default(false)
+  aiCitations     Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId, category])
+}
+
+model SimulationScenario {
+  id                    String   @id @default(uuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                  String
+  parametersJson        String   // JSON: { deltaSocialMinutes: -30, extraStudyHours: 1, shiftFocusHour: 9 }
+  baselineMetricsJson   String   // JSON: { screenTime: 468, attentionScore: 72, focusHours: 2.5 }
+  projectedMetricsJson  String   // JSON: { screenTime: 408, attentionScore: 84, focusHours: 3.5, fatigueDelta: -15 }
+  confidenceScore       Float    @default(0.85)
+  disclaimer            String   @default("Estimated scenario based on historical telemetry — not guaranteed outcome.")
+  createdAt             DateTime @default(now())
+}
+
+model AdaptiveProductivityModel {
+  id                    String   @id @default(uuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  optimalFocusMinutes   Int      @default(35)
+  optimalBreakMinutes   Int      @default(7)
+  peakProductivityHours String   @default("[\"09:30 - 11:30\", \"16:00 - 17:30\"]") // JSON array
+  distractionTriggers   String   @default("[\"Late night notification surges\", \"Unscheduled YouTube tab switching\"]") // JSON array
+  fatigueThresholdHours Float    @default(4.5)
+  learningIterations    Int      @default(14)
+  isCustomized          Boolean  @default(false)
+  lastCalibratedAt      DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model ReflectionEntry {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  periodType      String   // DAILY, WEEKLY, MONTHLY
+  date            String   // YYYY-MM-DD or YYYY-Www
+  responsesJson   String   // JSON: { whatWentWell, whatDistracted, improvementGoal, proudOf }
+  aiSynthesis     String   // AI-generated summary & recommendations
+  recurringThemes String   @default("[]") // JSON array: ["Short-form friction", "Flow state consistency"]
+  sentimentScore  Float    @default(0.8) // 0.0 - 1.0
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, periodType, date])
+}
+
+model SyncQueueItem {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId        String?
+  entityType      String   // FOCUS_SESSION, SMART_GOAL, BLOCK_RULE, AUTOMATION, REFLECTION
+  entityId        String
+  action          String   // UPSERT, DELETE
+  payloadJson     String
+  clientTimestamp DateTime @default(now())
+  status          String   @default("SYNCED") // QUEUED, SYNCED, CONFLICT_RESOLVED, FAILED
+  conflictLog     String?
+  createdAt       DateTime @default(now())
+}
+
+model IntegrationApp {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider        String    // GOOGLE_CALENDAR, SPOTIFY, NOTION, GITHUB, SLACK, TODOIST, OBSIDIAN
+  name            String
+  category        String    // CALENDAR, MUSIC, NOTES, DEV, COMMUNICATION, TASKS
+  icon            String
+  status          String    @default("CONNECTED") // CONNECTED, DISCONNECTED, ERROR
+  scopes          String    @default("read,write")
+  configJson      String    @default("{}")
+  lastSyncAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([userId, provider])
+}
+
+model MarketplaceApp {
+  id              String   @id @default(uuid())
+  slug            String   @unique
+  name            String
+  author          String
+  category        String   // FOCUS_PACK, AGENT, THEME, AUTOMATION, WIDGET, INTEGRATION
+  description     String
+  icon            String
+  version         String   @default("1.0.0")
+  rating          Float    @default(4.9)
+  installCount    Int      @default(120)
+  permissionsJson String   @default("[\"read:metrics\"]")
+  manifestJson    String   @default("{}")
+  isOfficial      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SubscriptionTier {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planName            String   @default("PRO") // FREE, PRO, PREMIUM, TEAM, ENTERPRISE
+  status              String   @default("ACTIVE") // ACTIVE, TRIALING, PAST_DUE, CANCELED
+  currentPeriodEnd    DateTime
+  monthlyPriceUsd     Float    @default(12.0)
+  featureEntitlements String   @default("{\"multiAgent\":true,\"workflows\":true,\"simulations\":true,\"integrations\":true,\"enterprise\":false}")
+  usageLimits         String   @default("{\"aiQueriesPerMonth\":1000,\"workflowLimit\":25,\"deviceLimit\":10}")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model BillingInvoice {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoiceNumber   String   @unique
+  amountUsd       Float
+  currency        String   @default("USD")
+  status          String   @default("PAID") // PAID, PENDING, FAILED
+  planName        String   @default("PRO")
+  billingDate     DateTime @default(now())
+  pdfDownloadUrl  String   @default("/api/v4/billing/invoices/mock-download")
+  createdAt       DateTime @default(now())
+}
+
+model EnterprisePolicy {
+  id               String       @id @default(uuid())
+  orgId            String
+  organization     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  policyKey        String       // SSO_ENFORCEMENT, AUDIT_RETENTION_DAYS, DATA_RESIDENCY, SCIM_PROVISIONING, RBAC_STRICT_MODE
+  policyValueJson  String
+  enforcementLevel String       @default("MANDATORY") // MANDATORY, ADVISORY, DISABLED
+  updatedBy        String       @default("SYSTEM_ADMIN")
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([orgId, policyKey])
+}
+
+model AiGovernanceAudit {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promptSummary     String
+  modelRouted       String   // GEMINI_PRO, GEMINI_FLASH, LOCAL_HEURISTIC
+  latencyMs         Int
+  tokensUsed        Int
+  costUsd           Float    @default(0.00015)
+  riskScore         Float    @default(0.05) // 0.0 to 1.0
+  sensitiveFiltered Boolean  @default(false)
+  toolsInvoked      String   @default("[]") // JSON array
+  approvedBy        String?  // HUMAN_USER, AUTO_POLICY
+  status            String   @default("APPROVED") // APPROVED, FLAGGED, REJECTED
+  createdAt         DateTime @default(now())
+}
+
+model FeatureFlag {
+  id                 String   @id @default(uuid())
+  flagKey            String   @unique
+  description        String
+  isEnabled          Boolean  @default(true)
+  rolloutPercentage  Int      @default(100)
+  targetEnvironments String   @default("[\"DEVELOPMENT\",\"STAGING\",\"PRODUCTION\"]")
+  experimentVariants String   @default("[]") // JSON: [{ variant: "A", weight: 50 }, { variant: "B", weight: 50 }]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
 

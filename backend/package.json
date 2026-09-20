@@ -15,7 +15,9 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "test": "tsx test/index.test.ts",
     "test:v2": "tsx test/v2.test.ts",
-    "test:v3": "tsx test/v3.test.ts"
+    "test:v3": "tsx test/v3.test.ts",
+    "test:v4": "tsx test/v4.test.ts",
+    "test:system": "tsx test/full_system.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

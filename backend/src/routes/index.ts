@@ -13,6 +13,7 @@ import { settingsRouter } from './settings.routes.js';
 import { exportRouter } from './export.routes.js';
 import { insightRouter } from './insight.routes.js';
 import { v3Router } from './v3/v3.routes.js';
+import { v4Router } from './v4/v4.routes.js';
 
 export const apiRouter = Router();
 
@@ -36,12 +37,16 @@ apiRouter.use('/insights', insightRouter);
 // V3 Intelligent Ecosystem Endpoints
 apiRouter.use('/v3', v3Router);
 
+// V4 Autonomous Platform & Global Scale Endpoints
+apiRouter.use('/v4', v4Router);
+
 apiRouter.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
-    service: 'Focus Intelligence API',
-    version: '3.0.0',
+    service: 'FocusOS Autonomous Productivity API',
+    version: '4.0.0',
     timestamp: new Date().toISOString(),
   });
 });
+
 

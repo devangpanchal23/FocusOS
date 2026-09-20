@@ -782,7 +782,456 @@ async function main() {
     },
   });
 
-  console.log('Focus Intelligence Version 3 ecosystem seeded successfully! 🚀');
+  // ==========================================
+  // VERSION 4 SEEDING — AUTONOMOUS INTELLIGENCE & PLATFORM
+  // ==========================================
+  console.log('Seeding FocusOS Version 4 Autonomous Intelligence & Platform...');
+
+  // 1. Adaptive Productivity Model
+  await prisma.adaptiveProductivityModel.upsert({
+    where: { userId: user.id },
+    update: {},
+    create: {
+      userId: user.id,
+      optimalFocusMinutes: 38,
+      optimalBreakMinutes: 7,
+      peakProductivityHours: JSON.stringify(['09:30 - 11:45', '15:30 - 17:15']),
+      distractionTriggers: JSON.stringify(['Unscheduled YouTube tabs during coding', 'Late night Instagram reels after 10 PM']),
+      fatigueThresholdHours: 4.8,
+      learningIterations: 21,
+      isCustomized: false,
+    },
+  });
+
+  // 2. Personal Context Engine (Observed vs User-Provided vs AI-Assumed)
+  await prisma.personalContext.deleteMany({ where: { userId: user.id } });
+  await prisma.personalContext.createMany({
+    data: [
+      {
+        userId: user.id,
+        contextType: 'BEHAVIORAL',
+        sourceType: 'OBSERVED_DATA',
+        key: 'measured_daily_screen_time_avg',
+        value: '7h 14m average across last 14 days',
+        confidence: 1.0,
+        evidence: 'Aggregated from 14 daily telemetry metric records',
+      },
+      {
+        userId: user.id,
+        contextType: 'SCHEDULE',
+        sourceType: 'USER_PREFERENCE',
+        key: 'declared_core_work_window',
+        value: '10:00 - 18:30 IST',
+        confidence: 1.0,
+        evidence: 'Explicitly configured in User Settings',
+      },
+      {
+        userId: user.id,
+        contextType: 'BEHAVIORAL',
+        sourceType: 'AI_ASSUMPTION',
+        key: 'inferred_distraction_vector',
+        value: 'Afternoon fatigue dip at 15:00 correlates with 3.2x higher probability of opening short-form video',
+        confidence: 0.88,
+        evidence: 'Derived from telemetry timestamp clustering across 8 days',
+      },
+      {
+        userId: user.id,
+        contextType: 'GOAL',
+        sourceType: 'USER_PREFERENCE',
+        key: 'primary_weekly_objective',
+        value: 'Complete 20 hours of focused Deep Work and maintain Attention Score > 75',
+        confidence: 1.0,
+        evidence: 'Created in SMART Goals',
+      },
+    ],
+  });
+
+  // 3. Personal Knowledge Vault
+  await prisma.knowledgeItem.deleteMany({ where: { userId: user.id } });
+  await prisma.knowledgeItem.createMany({
+    data: [
+      {
+        userId: user.id,
+        category: 'STRATEGY',
+        title: 'Deep Work Startup Ritual',
+        content: '1. Close WhatsApp and Slack.\n2. Open VS Code in fullscreen workspace.\n3. Put phone in Do Not Disturb on the shelf.\n4. Start 40-minute Focus Studio session with Ambient Flow audio.',
+        tags: JSON.stringify(['ritual', 'focus', 'deep-work']),
+        isPinned: true,
+        aiCitations: 5,
+      },
+      {
+        userId: user.id,
+        category: 'RULE',
+        title: 'Zero Short-Form Videos Before 6 PM',
+        content: 'Reels, YouTube Shorts, and TikTok are strictly quarantined until after work hours are complete.',
+        tags: JSON.stringify(['habits', 'boundaries', 'anti-distraction']),
+        isPinned: true,
+        aiCitations: 8,
+      },
+      {
+        userId: user.id,
+        category: 'REFLECTION',
+        title: 'Mid-Week Sprint Retrospective',
+        content: 'Morning coding blocks had zero interruptions when scheduled between 10 AM and 12 PM. Energy crashed around 3:30 PM; need a walking break instead of scrolling.',
+        tags: JSON.stringify(['weekly', 'energy', 'review']),
+        isPinned: false,
+        aiCitations: 3,
+      },
+    ],
+  });
+
+  // 4. Human-In-The-Loop Approval Requests
+  await prisma.actionApprovalRequest.deleteMany({ where: { userId: user.id } });
+  await prisma.actionApprovalRequest.createMany({
+    data: [
+      {
+        userId: user.id,
+        actionType: 'BLOCK_RULE_UPDATE',
+        riskLevel: 'HIGH_IMPACT',
+        title: 'Tighten Instagram & YouTube Shield for Tomorrow Morning',
+        description: 'Autonomous Focus Agent recommends enabling strict zero-override app blocking tomorrow between 09:00 and 12:30 to guarantee 3.5h study goal.',
+        previewData: JSON.stringify({
+          targetApps: ['Instagram', 'YouTube'],
+          currentMode: 'INSTANT_OVERRIDE_PERMITTED',
+          proposedMode: 'STRICT_BLOCK_SCHEDULED',
+          scheduledHours: '09:00 - 12:30',
+          estimatedAttentionGain: '+14 points',
+        }),
+        status: 'PENDING',
+        requestedBy: 'FOCUS_AGENT',
+      },
+      {
+        userId: user.id,
+        actionType: 'CALENDAR_EVENT_CREATE',
+        riskLevel: 'LOW_RISK',
+        title: 'Schedule Deep Coding Block in Google Calendar',
+        description: 'Auto-placed 2-hour Deep Work slot at 10:00 AM based on your calendar opening.',
+        previewData: JSON.stringify({
+          eventTitle: 'FocusOS Deep Work Sprint',
+          startTime: '10:00',
+          endTime: '12:00',
+          calendar: 'Google Calendar (Work)',
+        }),
+        status: 'EXECUTED',
+        requestedBy: 'PLANNING_AGENT',
+        executedAt: new Date(),
+        resultSummary: 'Calendar event synced successfully.',
+      },
+    ],
+  });
+
+  // 5. Visual AI Workflows
+  await prisma.aiWorkflow.deleteMany({ where: { userId: user.id } });
+  const sampleWorkflow = await prisma.aiWorkflow.create({
+    data: {
+      userId: user.id,
+      name: 'Sunday Evening Productivity Reset',
+      description: 'Analyzes weekly telemetry, flags top distraction vectors, drafts next week focus blocks, and requests confirmation.',
+      triggerType: 'SCHEDULED_CRON',
+      triggerConfig: JSON.stringify({ cron: '0 20 * * 0', description: 'Every Sunday at 8:00 PM' }),
+      nodesJson: JSON.stringify([
+        { id: 'node-1', type: 'trigger', label: 'Sunday 8:00 PM', icon: 'Clock', x: 80, y: 150 },
+        { id: 'node-2', type: 'condition', label: 'Weekly Screen Time > 30h', icon: 'Filter', x: 280, y: 150 },
+        { id: 'node-3', type: 'ai', label: 'AI Synthesize Distraction Trends', icon: 'Bot', x: 480, y: 150 },
+        { id: 'node-4', type: 'approval', label: 'Confirm Weekly Target Adjustments', icon: 'ShieldCheck', x: 680, y: 150 },
+        { id: 'node-5', type: 'action', label: 'Apply Shield Rules & Draft Calendar', icon: 'Zap', x: 880, y: 150 },
+      ]),
+      edgesJson: JSON.stringify([
+        { from: 'node-1', to: 'node-2' },
+        { from: 'node-2', to: 'node-3' },
+        { from: 'node-3', to: 'node-4' },
+        { from: 'node-4', to: 'node-5' },
+      ]),
+      isEnabled: true,
+      lastRunAt: new Date(),
+      lastRunStatus: 'SUCCESS',
+      runCount: 4,
+      executions: {
+        create: [
+          {
+            userId: user.id,
+            status: 'COMPLETED',
+            durationMs: 420,
+            stepsLogJson: JSON.stringify([
+              { step: 1, name: 'Trigger Activated', status: 'OK', detail: 'Cron event matched 20:00 Sunday' },
+              { step: 2, name: 'Condition Checked', status: 'OK', detail: 'Weekly total 32h 15m (> 30h threshold)' },
+              { step: 3, name: 'AI Reasoning', status: 'OK', detail: 'Identified 5h 20m on short-form video' },
+              { step: 4, name: 'Approval Requested', status: 'OK', detail: 'User approved proposed targets' },
+              { step: 5, name: 'Action Completed', status: 'OK', detail: 'Applied updated app limits' },
+            ]),
+          },
+        ],
+      },
+    },
+  });
+
+  // 6. Scenario Simulation Baseline
+  await prisma.simulationScenario.deleteMany({ where: { userId: user.id } });
+  await prisma.simulationScenario.create({
+    data: {
+      userId: user.id,
+      name: 'Cut Reels by 45m & Add 1h Morning Coding',
+      parametersJson: JSON.stringify({
+        deltaSocialMinutes: -45,
+        extraStudyHours: 1.0,
+        shiftFocusHour: 9,
+      }),
+      baselineMetricsJson: JSON.stringify({
+        screenTimeMinutes: 468,
+        shortFormMinutes: 205,
+        attentionScore: 72,
+        focusMinutes: 150,
+      }),
+      projectedMetricsJson: JSON.stringify({
+        screenTimeMinutes: 423,
+        shortFormMinutes: 160,
+        attentionScore: 84,
+        focusMinutes: 210,
+        fatigueReductionPercent: 18,
+      }),
+      confidenceScore: 0.89,
+      disclaimer: 'Estimated scenario based on historical telemetry — not guaranteed outcome.',
+    },
+  });
+
+  // 7. Structured AI Reflection
+  await prisma.reflectionEntry.deleteMany({ where: { userId: user.id } });
+  await prisma.reflectionEntry.create({
+    data: {
+      userId: user.id,
+      periodType: 'DAILY',
+      date: todayStr,
+      responsesJson: JSON.stringify({
+        whatWentWell: 'Completed two unbroken 45-minute focus sessions on backend architecture with zero tabs switched.',
+        whatDistracted: 'Fell into a 25-minute YouTube Shorts spiral during post-lunch slump.',
+        improvementGoal: 'Schedule an offline walk at 2 PM instead of opening a browser.',
+        proudOf: 'Reached Level 4 and defended 7-day focus streak.',
+      }),
+      aiSynthesis: 'Outstanding focus depth during morning sprints. The recurring pattern is a 14:30 energy trough triggering reflexive video feeds. Introducing an automated 14:15 walking nudge will shield your attention momentum.',
+      recurringThemes: JSON.stringify(['Morning Flow Consistency', 'Post-Lunch Vulnerability Dip', 'Streak Protection']),
+      sentimentScore: 0.85,
+    },
+  });
+
+  // 8. Third-Party Integrations
+  const integrationsList = [
+    { provider: 'GOOGLE_CALENDAR', name: 'Google Calendar', category: 'CALENDAR', icon: 'Calendar', status: 'CONNECTED' },
+    { provider: 'SPOTIFY', name: 'Spotify Music', category: 'MUSIC', icon: 'Music', status: 'CONNECTED' },
+    { provider: 'NOTION', name: 'Notion Workspace', category: 'NOTES', icon: 'FileText', status: 'CONNECTED' },
+    { provider: 'GITHUB', name: 'GitHub Developer', category: 'DEV', icon: 'GitPullRequest', status: 'CONNECTED' },
+    { provider: 'SLACK', name: 'Slack Workplace', category: 'COMMUNICATION', icon: 'MessageSquare', status: 'DISCONNECTED' },
+    { provider: 'TODOIST', name: 'Todoist Tasks', category: 'TASKS', icon: 'CheckSquare', status: 'DISCONNECTED' },
+  ];
+  await prisma.integrationApp.deleteMany({ where: { userId: user.id } });
+  for (const item of integrationsList) {
+    await prisma.integrationApp.create({
+      data: {
+        userId: user.id,
+        provider: item.provider,
+        name: item.name,
+        category: item.category,
+        icon: item.icon,
+        status: item.status,
+        scopes: 'read:calendar,write:events',
+        configJson: JSON.stringify({ autoSyncIntervalMins: 30 }),
+        lastSyncAt: item.status === 'CONNECTED' ? new Date() : null,
+      },
+    });
+  }
+
+  // 9. Productivity App Marketplace Catalog
+  const marketplaceApps = [
+    {
+      slug: 'deep-work-ambient-pack',
+      name: 'Binaural Flow Ambient Pack',
+      author: 'NeuroAcoustics Lab',
+      category: 'FOCUS_PACK',
+      description: 'Scientifically calibrated 40Hz gamma binaural beats and ambient rainfall for sustained focus states.',
+      icon: 'Headphones',
+      version: '1.4.0',
+      rating: 4.9,
+      installCount: 840,
+      permissionsJson: JSON.stringify(['audio:playback']),
+      isOfficial: true,
+    },
+    {
+      slug: 'social-media-friction-agent',
+      name: 'Anti-Doomscroll Agent',
+      author: 'FocusOS Labs',
+      category: 'AGENT',
+      description: 'Intelligent friction modal introducing 10-second breath pauses before allowing short-form video opening.',
+      icon: 'ShieldAlert',
+      version: '2.1.0',
+      rating: 4.8,
+      installCount: 1420,
+      permissionsJson: JSON.stringify(['read:metrics', 'write:blocking']),
+      isOfficial: true,
+    },
+    {
+      slug: 'pomodoro-minimalist-theme',
+      name: 'Cyberpunk Obsidian Theme',
+      author: 'AestheticUI',
+      category: 'THEME',
+      description: 'Sleek high-contrast dark palette with luminous amber neon accents and distraction-free typography.',
+      icon: 'Palette',
+      version: '1.0.2',
+      rating: 4.7,
+      installCount: 650,
+      permissionsJson: JSON.stringify([]),
+      isOfficial: false,
+    },
+    {
+      slug: 'notion-daily-journal-sync',
+      name: 'Notion Retrospective Bridge',
+      author: 'Integrators Co',
+      category: 'INTEGRATION',
+      description: 'Automatically synchronizes daily focus metrics and reflections into your personal Notion database.',
+      icon: 'Share2',
+      version: '1.2.0',
+      rating: 4.9,
+      installCount: 1100,
+      permissionsJson: JSON.stringify(['read:reflections', 'read:metrics']),
+      isOfficial: false,
+    },
+  ];
+
+  for (const app of marketplaceApps) {
+    await prisma.marketplaceApp.upsert({
+      where: { slug: app.slug },
+      update: app,
+      create: app,
+    });
+  }
+
+  // 10. SaaS Subscription & Invoices
+  const nextMonth = new Date();
+  nextMonth.setDate(nextMonth.getDate() + 30);
+  await prisma.subscriptionTier.upsert({
+    where: { userId: user.id },
+    update: {},
+    create: {
+      userId: user.id,
+      planName: 'PRO',
+      status: 'ACTIVE',
+      currentPeriodEnd: nextMonth,
+      monthlyPriceUsd: 12.0,
+      featureEntitlements: JSON.stringify({
+        multiAgent: true,
+        workflows: true,
+        simulations: true,
+        integrations: true,
+        enterprise: false,
+      }),
+      usageLimits: JSON.stringify({
+        aiQueriesPerMonth: 1000,
+        workflowLimit: 25,
+        deviceLimit: 10,
+      }),
+    },
+  });
+
+  await prisma.billingInvoice.deleteMany({ where: { userId: user.id } });
+  await prisma.billingInvoice.createMany({
+    data: [
+      {
+        userId: user.id,
+        invoiceNumber: 'INV-2026-001',
+        amountUsd: 12.0,
+        currency: 'USD',
+        status: 'PAID',
+        planName: 'FocusOS Pro Monthly',
+        billingDate: new Date(Date.now() - 30 * 86400000),
+      },
+      {
+        userId: user.id,
+        invoiceNumber: 'INV-2026-002',
+        amountUsd: 12.0,
+        currency: 'USD',
+        status: 'PAID',
+        planName: 'FocusOS Pro Monthly',
+        billingDate: new Date(),
+      },
+    ],
+  });
+
+  // 11. Enterprise Policy Simulation
+  const org = await prisma.organization.findFirst();
+  if (org) {
+    await prisma.enterprisePolicy.deleteMany({ where: { orgId: org.id } });
+    await prisma.enterprisePolicy.createMany({
+      data: [
+        {
+          orgId: org.id,
+          policyKey: 'SSO_ENFORCEMENT',
+          policyValueJson: JSON.stringify({ enabled: true, provider: 'SAML_OKTA', forceSso: false }),
+          enforcementLevel: 'MANDATORY',
+        },
+        {
+          orgId: org.id,
+          policyKey: 'AUDIT_RETENTION_DAYS',
+          policyValueJson: JSON.stringify({ retentionDays: 90, exportToS3: true }),
+          enforcementLevel: 'MANDATORY',
+        },
+        {
+          orgId: org.id,
+          policyKey: 'DATA_RESIDENCY',
+          policyValueJson: JSON.stringify({ region: 'ap-south-1', allowCrossBorder: false }),
+          enforcementLevel: 'MANDATORY',
+        },
+      ],
+    });
+  }
+
+  // 12. AI Governance Audit Log
+  await prisma.aiGovernanceAudit.deleteMany({ where: { userId: user.id } });
+  await prisma.aiGovernanceAudit.createMany({
+    data: [
+      {
+        userId: user.id,
+        promptSummary: 'Multi-agent orchestration request for 3-hour study block planning',
+        modelRouted: 'GEMINI_FLASH',
+        latencyMs: 310,
+        tokensUsed: 420,
+        costUsd: 0.00012,
+        riskScore: 0.02,
+        sensitiveFiltered: false,
+        toolsInvoked: JSON.stringify(['PlanningAgent', 'FocusAgent', 'TelemetryInspector']),
+        approvedBy: 'AUTO_POLICY',
+        status: 'APPROVED',
+      },
+      {
+        userId: user.id,
+        promptSummary: 'Strict block rule proposal for morning study session',
+        modelRouted: 'GEMINI_PRO',
+        latencyMs: 640,
+        tokensUsed: 680,
+        costUsd: 0.00035,
+        riskScore: 0.15,
+        sensitiveFiltered: false,
+        toolsInvoked: JSON.stringify(['FocusAgent', 'HumanApprovalDispatcher']),
+        approvedBy: 'HUMAN_USER',
+        status: 'APPROVED',
+      },
+    ],
+  });
+
+  // 13. Central Feature Flags
+  const featureFlags = [
+    { flagKey: 'v4_autonomous_orchestrator', description: 'Enable multi-agent orchestration swarm', isEnabled: true, rolloutPercentage: 100 },
+    { flagKey: 'v4_visual_workflows', description: 'Enable no-code visual workflow canvas builder', isEnabled: true, rolloutPercentage: 100 },
+    { flagKey: 'v4_scenario_simulator', description: 'Enable What-If predictive scenario simulation', isEnabled: true, rolloutPercentage: 100 },
+    { flagKey: 'v4_app_marketplace', description: 'Enable third-party plugin & app marketplace', isEnabled: true, rolloutPercentage: 100 },
+    { flagKey: 'v4_zero_trust_governance', description: 'Enforce strict AI governance and audit logs', isEnabled: true, rolloutPercentage: 100 },
+  ];
+  for (const flag of featureFlags) {
+    await prisma.featureFlag.upsert({
+      where: { flagKey: flag.flagKey },
+      update: flag,
+      create: flag,
+    });
+  }
+
+  console.log('FocusOS Version 4 Autonomous Platform seeded successfully! 🚀');
 }
 
 main()
@@ -793,3 +1242,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
