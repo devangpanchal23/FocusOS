@@ -40,6 +40,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    if (response.status === 503) {
+      throw new Error(data.error || 'Backend server is not running on port 5000.');
+    }
     throw new Error(data.error || `HTTP ${response.status}: Request failed`);
   }
 
