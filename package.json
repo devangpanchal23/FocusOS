@@ -10,6 +10,7 @@
     "test": "cd backend && npm test"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "typescript": "^7.0.2"
   }
 }
