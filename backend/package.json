@@ -10,7 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
-    "prisma:generate": "prisma generate && node -e \"try { fs.cpSync('node_modules/@prisma', '../node_modules/@prisma', {recursive:true}); } catch(e){}\"",
+    "prisma:generate": "prisma generate && node -e \"try { fs.cpSync('node_modules/@prisma', '../node_modules/@prisma', {recursive:true}); fs.cpSync('node_modules/.prisma', '../node_modules/.prisma', {recursive:true}); } catch(e){}\"",
     "prisma:push": "prisma db push",
     "prisma:seed": "tsx prisma/seed.ts",
     "test": "tsx test/index.test.ts",
