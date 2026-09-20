@@ -115,4 +115,85 @@ export const api = {
     request<any>(`/analytics/trends?days=${days}`),
 
   getCategories: () => request<{ categories: any[] }>('/analytics/categories'),
+
+  // Version 2 Endpoints
+
+  // Insights
+  getInsights: () => request<any[]>('/insights'),
+
+  // Focus Studio
+  getFocusProfiles: () => request<any[]>('/focus/profiles'),
+  createFocusProfile: (data: any) =>
+    request<any>('/focus/profiles', { method: 'POST', body: JSON.stringify(data) }),
+  updateFocusProfile: (id: string, data: any) =>
+    request<any>(`/focus/profiles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteFocusProfile: (id: string) =>
+    request<any>(`/focus/profiles/${id}`, { method: 'DELETE' }),
+  startFocusSession: (data: any) =>
+    request<any>('/focus/sessions', { method: 'POST', body: JSON.stringify(data) }),
+  recordDistraction: (id: string) =>
+    request<any>(`/focus/sessions/${id}/distraction`, { method: 'POST' }),
+  completeFocusSession: (id: string, data?: any) =>
+    request<any>(`/focus/sessions/${id}/complete`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  abortFocusSession: (id: string, data?: any) =>
+    request<any>(`/focus/sessions/${id}/abort`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  getFocusSessions: (limit: number = 20) =>
+    request<any[]>(`/focus/sessions?limit=${limit}`),
+  getFocusStats: () => request<any>('/focus/stats'),
+
+  // Blocking
+  getBlockRules: () => request<any[]>('/blocking/rules'),
+  createBlockRule: (data: any) =>
+    request<any>('/blocking/rules', { method: 'POST', body: JSON.stringify(data) }),
+  updateBlockRule: (id: string, data: any) =>
+    request<any>(`/blocking/rules/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteBlockRule: (id: string) =>
+    request<any>(`/blocking/rules/${id}`, { method: 'DELETE' }),
+  overrideBlockRule: (id: string, data: { reason: string; overrideDurationMinutes: number }) =>
+    request<any>(`/blocking/rules/${id}/override`, { method: 'POST', body: JSON.stringify(data) }),
+  getBlockOverrides: () => request<any[]>('/blocking/overrides'),
+
+  // Routines
+  getRoutines: () => request<any[]>('/routines'),
+  createRoutine: (data: any) =>
+    request<any>('/routines', { method: 'POST', body: JSON.stringify(data) }),
+  updateRoutine: (id: string, data: any) =>
+    request<any>(`/routines/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteRoutine: (id: string) =>
+    request<any>(`/routines/${id}`, { method: 'DELETE' }),
+
+  // Automations
+  getAutomationRules: () => request<any[]>('/automation/rules'),
+  createAutomationRule: (data: any) =>
+    request<any>('/automation/rules', { method: 'POST', body: JSON.stringify(data) }),
+  updateAutomationRule: (id: string, data: any) =>
+    request<any>(`/automation/rules/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteAutomationRule: (id: string) =>
+    request<any>(`/automation/rules/${id}`, { method: 'DELETE' }),
+  getAutomationLogs: (limit: number = 50) =>
+    request<any[]>(`/automation/logs?limit=${limit}`),
+  evaluateAutomations: () =>
+    request<any>('/automation/evaluate', { method: 'POST' }),
+
+  // Gamification
+  getGamification: () => request<any>('/gamification'),
+  checkAchievements: () => request<any>('/gamification/check', { method: 'POST' }),
+
+  // Notifications
+  getNotifications: () => request<{ notifications: any[]; unreadCount: number }>('/notifications'),
+  markNotificationRead: (id: string) =>
+    request<any>(`/notifications/${id}/read`, { method: 'PUT' }),
+  markAllNotificationsRead: () =>
+    request<any>('/notifications/read-all', { method: 'PUT' }),
+  deleteNotification: (id: string) =>
+    request<any>(`/notifications/${id}`, { method: 'DELETE' }),
+
+  // User Settings
+  getSettings: () => request<any>('/settings'),
+  updateSettings: (data: any) =>
+    request<any>('/settings', { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Export URLs
+  getExportUrl: (type: 'csv' | 'json' | 'digest') => `/api/export/${type}`,
 };
+

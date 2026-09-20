@@ -1,0 +1,19 @@
+import { Router } from 'express';
+import { requireAuth } from '../middleware/auth.middleware.js';
+import { FocusController } from '../controllers/focus.controller.js';
+
+export const focusRouter = Router();
+
+focusRouter.use(requireAuth);
+
+focusRouter.get('/profiles', FocusController.getProfiles);
+focusRouter.post('/profiles', FocusController.createProfile);
+focusRouter.put('/profiles/:id', FocusController.updateProfile);
+focusRouter.delete('/profiles/:id', FocusController.deleteProfile);
+
+focusRouter.post('/sessions', FocusController.startSession);
+focusRouter.post('/sessions/:id/distraction', FocusController.recordDistraction);
+focusRouter.post('/sessions/:id/complete', FocusController.completeSession);
+focusRouter.post('/sessions/:id/abort', FocusController.abortSession);
+focusRouter.get('/sessions', FocusController.getSessions);
+focusRouter.get('/stats', FocusController.getStats);

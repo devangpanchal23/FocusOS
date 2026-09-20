@@ -13,7 +13,8 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:seed": "tsx prisma/seed.ts",
-    "test": "tsx test/index.test.ts"
+    "test": "tsx test/index.test.ts",
+    "test:v2": "tsx test/v2.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

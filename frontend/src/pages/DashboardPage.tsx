@@ -23,6 +23,7 @@ import { ScreenTimeBarChart } from '../components/charts/ScreenTimeBarChart.js';
 import { CategoryDonutChart } from '../components/charts/CategoryDonutChart.js';
 import { HourlyActivityChart } from '../components/charts/HourlyActivityChart.js';
 import { DeviceBarChart } from '../components/charts/DeviceBarChart.js';
+import { InsightBanner } from '../components/common/InsightBanner';
 import { useNavigate } from 'react-router-dom';
 
 export const DashboardPage: React.FC = () => {
@@ -80,6 +81,9 @@ export const DashboardPage: React.FC = () => {
       />
 
       <main className="p-8 space-y-8 max-w-7xl mx-auto w-full">
+        {/* Dynamic Behavioral Intelligence Banner */}
+        <InsightBanner />
+
         {/* Top 6 Overview Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <StatCard

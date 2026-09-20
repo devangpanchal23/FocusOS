@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding Focus Intelligence database...');
+  console.log('Seeding Focus Intelligence V2 database...');
 
   // 1. Categories
   const categoriesData = [
@@ -169,7 +169,6 @@ async function main() {
     dates.push(d.toISOString().split('T')[0]);
   }
 
-  // Realistic historical pattern
   const dailyData = [
     { date: dates[0], screenTime: 440, shorts: 180, focus: 190, score: 68, notifs: 480, unlocks: 68, reels: 520 },
     { date: dates[1], screenTime: 490, shorts: 210, focus: 160, score: 62, notifs: 512, unlocks: 72, reels: 590 },
@@ -177,7 +176,6 @@ async function main() {
     { date: dates[3], screenTime: 430, shorts: 160, focus: 210, score: 74, notifs: 460, unlocks: 65, reels: 480 },
     { date: dates[4], screenTime: 510, shorts: 240, focus: 140, score: 58, notifs: 590, unlocks: 84, reels: 710 },
     { date: dates[5], screenTime: 420, shorts: 150, focus: 220, score: 77, notifs: 440, unlocks: 60, reels: 430 },
-    // Today: Matches the user's exact screenshot metrics
     { date: dates[6], screenTime: 468, shorts: 205, focus: 192, score: 72, notifs: 532, unlocks: 75, reels: 698 },
   ];
 
@@ -220,17 +218,19 @@ async function main() {
       },
     });
 
-    // Add usage records for today (dates[6])
     if (item.date === dates[6]) {
+      // Clear today's records before re-inserting to prevent duplicate stacks on multiple seed runs
+      await prisma.usageRecord.deleteMany({
+        where: { userId: user.id, date: item.date },
+      });
+
       const records = [
-        // Phone records (matching Android wellbeing screenshot)
         { app: 'Instagram', cat: 'Social Media', active: 368, bg: 15, shorts: 205, reels: 698, dev: phone.id },
         { app: 'Claude', cat: 'Productivity', active: 21, bg: 0, shorts: 0, reels: 0, dev: phone.id },
         { app: 'Phone', cat: 'Communication', active: 12, bg: 0, shorts: 0, reels: 0, dev: phone.id },
         { app: 'WhatsApp', cat: 'Communication', active: 9, bg: 2, shorts: 0, reels: 0, dev: phone.id },
         { app: 'Uber', cat: 'Utilities', active: 9, bg: 0, shorts: 0, reels: 0, dev: phone.id },
         { app: 'YouTube', cat: 'Entertainment', active: 8, bg: 0, shorts: 8, reels: 14, dev: phone.id },
-        // Laptop records (matching Windows battery/app usage screenshot)
         { app: 'Brave Browser', cat: 'Browser', active: 61, bg: 91, shorts: 0, reels: 0, dev: laptop.id },
         { app: 'Visual Studio Code', cat: 'Development', active: 171, bg: 30, shorts: 0, reels: 0, dev: laptop.id },
       ];
@@ -256,7 +256,338 @@ async function main() {
     }
   }
 
-  console.log('Focus Intelligence seed completed successfully!');
+  // ==========================================
+  // 6. VERSION 2 SEED DATA
+  // ==========================================
+
+  // Focus Profiles
+  const profilesData = [
+    {
+      id: 'profile-deep-work',
+      name: 'Deep Work Flow',
+      durationMinutes: 50,
+      breakMinutes: 10,
+      allowedApps: JSON.stringify(['Visual Studio Code', 'Terminal', 'Brave Browser']),
+      blockedApps: JSON.stringify(['Instagram', 'YouTube', 'WhatsApp', 'Twitter']),
+      icon: 'Zap',
+      color: '#f59e0b',
+    },
+    {
+      id: 'profile-dsa-study',
+      name: 'DSA & Study Session',
+      durationMinutes: 45,
+      breakMinutes: 5,
+      allowedApps: JSON.stringify(['Visual Studio Code', 'Brave Browser']),
+      blockedApps: JSON.stringify(['Instagram', 'YouTube', 'Snapchat', 'Netflix']),
+      icon: 'BookOpen',
+      color: '#6366f1',
+    },
+    {
+      id: 'profile-code-sprint',
+      name: 'High Intensity Sprint',
+      durationMinutes: 90,
+      breakMinutes: 15,
+      allowedApps: JSON.stringify(['Visual Studio Code']),
+      blockedApps: JSON.stringify(['Instagram', 'YouTube', 'WhatsApp', 'Phone']),
+      icon: 'Code',
+      color: '#10b981',
+    },
+    {
+      id: 'profile-quick-flow',
+      name: 'Pomodoro Standard',
+      durationMinutes: 25,
+      breakMinutes: 5,
+      allowedApps: JSON.stringify(['All work apps']),
+      blockedApps: JSON.stringify(['Instagram', 'Shorts']),
+      icon: 'Flame',
+      color: '#ec4899',
+    },
+  ];
+
+  for (const p of profilesData) {
+    await prisma.focusProfile.upsert({
+      where: { id: p.id },
+      update: { userId: user.id, ...p },
+      create: { userId: user.id, ...p },
+    });
+  }
+
+  // Focus Sessions
+  await prisma.focusSession.deleteMany({ where: { userId: user.id } });
+  await prisma.focusSession.createMany({
+    data: [
+      {
+        userId: user.id,
+        profileId: 'profile-deep-work',
+        taskName: 'FocusOS V2 Architecture & Schema Design',
+        durationMinutes: 50,
+        completedMinutes: 50,
+        breakMinutes: 10,
+        distractionsCount: 1,
+        status: 'COMPLETED',
+        notes: 'Constructed relational models and automation builder specs.',
+        startedAt: new Date(Date.now() - 3 * 3600 * 1000),
+        endedAt: new Date(Date.now() - 2 * 3600 * 1000),
+      },
+      {
+        userId: user.id,
+        profileId: 'profile-dsa-study',
+        taskName: 'LeetCode Graph Algorithms & Trees',
+        durationMinutes: 45,
+        completedMinutes: 45,
+        breakMinutes: 5,
+        distractionsCount: 0,
+        status: 'COMPLETED',
+        notes: 'Solved 2 medium tree traversal problems with 0 distractions.',
+        startedAt: new Date(Date.now() - 6 * 3600 * 1000),
+        endedAt: new Date(Date.now() - 5 * 3600 * 1000),
+      },
+    ],
+  });
+
+  // Gamification & Streaks
+  await prisma.userGamification.upsert({
+    where: { userId: user.id },
+    update: {
+      xp: 1450,
+      level: 4,
+      dailyStreak: 7,
+      focusStreak: 5,
+      longestStreak: 12,
+      lastActiveDate: dates[6],
+    },
+    create: {
+      userId: user.id,
+      xp: 1450,
+      level: 4,
+      dailyStreak: 7,
+      focusStreak: 5,
+      longestStreak: 12,
+      lastActiveDate: dates[6],
+    },
+  });
+
+  // Achievements
+  const achievements = [
+    {
+      code: 'FIRST_FOCUS',
+      title: 'First Flow State',
+      description: 'Completed your first uninterrupted focus session.',
+      icon: 'Zap',
+      xpReward: 100,
+      isUnlocked: true,
+      unlockedAt: new Date(Date.now() - 6 * 24 * 3600 * 1000),
+    },
+    {
+      code: 'STREAK_7_DAYS',
+      title: 'Consistency Master',
+      description: 'Logged and verified screen telemetry for 7 consecutive days.',
+      icon: 'Flame',
+      xpReward: 250,
+      isUnlocked: true,
+      unlockedAt: new Date(),
+    },
+    {
+      code: 'SHORTS_CURBED',
+      title: 'Algorithm Resistance',
+      description: 'Kept daily short-form content consumption below 45 minutes.',
+      icon: 'Shield',
+      xpReward: 150,
+      isUnlocked: true,
+      unlockedAt: new Date(Date.now() - 4 * 24 * 3600 * 1000),
+    },
+    {
+      code: 'DEEP_WORK_10H',
+      title: 'Deep Work Champion',
+      description: 'Accumulate 10 total hours of confirmed focus sessions.',
+      icon: 'Award',
+      xpReward: 300,
+      isUnlocked: false,
+    },
+    {
+      code: 'ZERO_OVERRIDES',
+      title: 'Iron Will',
+      description: 'Completed 5 blocked-app focus sessions without overriding rules.',
+      icon: 'Lock',
+      xpReward: 200,
+      isUnlocked: true,
+      unlockedAt: new Date(Date.now() - 2 * 24 * 3600 * 1000),
+    },
+    {
+      code: 'NIGHT_REST',
+      title: 'Circadian Shield',
+      description: 'No screen usage past 11:30 PM for 3 consecutive nights.',
+      icon: 'Moon',
+      xpReward: 150,
+      isUnlocked: false,
+    },
+  ];
+
+  for (const ach of achievements) {
+    await prisma.achievement.upsert({
+      where: { userId_code: { userId: user.id, code: ach.code } },
+      update: ach,
+      create: { userId: user.id, ...ach },
+    });
+  }
+
+  // Automation Rules
+  await prisma.automationRule.deleteMany({ where: { userId: user.id } });
+  const createdRule1 = await prisma.automationRule.create({
+    data: {
+      userId: user.id,
+      name: 'Shorts Guard (Alert when Reels > 45m)',
+      triggerType: 'REELS_LIMIT',
+      conditionOperator: 'GREATER_THAN',
+      thresholdValue: '45',
+      actionType: 'SHOW_NOTIFICATION',
+      actionTarget: 'Instagram Reels',
+      isEnabled: true,
+      lastTriggeredAt: new Date(),
+    },
+  });
+
+  await prisma.automationRule.create({
+    data: {
+      userId: user.id,
+      name: 'Evening Restrictor (Block Social Apps 8-11 PM)',
+      triggerType: 'TIME_WINDOW',
+      conditionOperator: 'CONTAINS',
+      thresholdValue: '20:00 - 23:00',
+      actionType: 'BLOCK_APP',
+      actionTarget: 'Social Media',
+      isEnabled: true,
+    },
+  });
+
+  await prisma.automationRule.create({
+    data: {
+      userId: user.id,
+      name: 'Screen Limit Cap (Alert when Screen > 4h)',
+      triggerType: 'SCREEN_TIME_LIMIT',
+      conditionOperator: 'GREATER_THAN',
+      thresholdValue: '240',
+      actionType: 'SHOW_NOTIFICATION',
+      actionTarget: 'All Devices',
+      isEnabled: true,
+    },
+  });
+
+  // Block Rules
+  await prisma.blockRule.deleteMany({ where: { userId: user.id } });
+  await prisma.blockRule.createMany({
+    data: [
+      {
+        userId: user.id,
+        targetType: 'APP',
+        targetValue: 'Instagram',
+        mode: 'SCHEDULED',
+        startTime: '20:00',
+        endTime: '23:00',
+        isEnabled: true,
+      },
+      {
+        userId: user.id,
+        targetType: 'WEBSITE',
+        targetValue: 'twitter.com',
+        mode: 'INSTANT',
+        isEnabled: true,
+      },
+      {
+        userId: user.id,
+        targetType: 'CATEGORY',
+        targetValue: 'Short-form Content',
+        mode: 'FOCUS_ONLY',
+        isEnabled: true,
+      },
+    ],
+  });
+
+  // Routine Schedules
+  await prisma.routineSchedule.deleteMany({ where: { userId: user.id } });
+  await prisma.routineSchedule.createMany({
+    data: [
+      {
+        userId: user.id,
+        title: 'Morning Deep Work Block',
+        category: 'Development',
+        startTime: '10:00',
+        endTime: '12:00',
+        daysOfWeek: JSON.stringify(['MON', 'TUE', 'WED', 'THU', 'FRI']),
+        isStrict: true,
+        isEnabled: true,
+        color: '#10b981',
+      },
+      {
+        userId: user.id,
+        title: 'Study & DSA Algorithms',
+        category: 'Education',
+        startTime: '17:30',
+        endTime: '19:00',
+        daysOfWeek: JSON.stringify(['MON', 'TUE', 'WED', 'THU', 'SAT']),
+        isStrict: false,
+        isEnabled: true,
+        color: '#6366f1',
+      },
+      {
+        userId: user.id,
+        title: 'Evening Digital Sunset (Zero Reels)',
+        category: 'Health',
+        startTime: '20:00',
+        endTime: '23:00',
+        daysOfWeek: JSON.stringify(['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']),
+        isStrict: true,
+        isEnabled: true,
+        color: '#f43f5e',
+      },
+    ],
+  });
+
+  // Notifications
+  await prisma.notification.deleteMany({ where: { userId: user.id } });
+  await prisma.notification.createMany({
+    data: [
+      {
+        userId: user.id,
+        type: 'ACHIEVEMENT',
+        title: '7-Day Streak Unlocked! 🎉',
+        message: 'You have logged and confirmed your attention telemetry for 7 consecutive days. +250 XP awarded!',
+        isRead: false,
+        createdAt: new Date(),
+      },
+      {
+        userId: user.id,
+        type: 'WARNING',
+        title: 'Peak Scrolling Hotspot Detected',
+        message: 'Instagram reels scrolling usually spikes between 8:00 PM – 10:00 PM. Would you like to activate Evening Restrictor?',
+        isRead: false,
+        createdAt: new Date(Date.now() - 30 * 60 * 1000),
+      },
+      {
+        userId: user.id,
+        type: 'INSIGHT',
+        title: 'Productivity Trend',
+        message: 'Focused coding time is up 18% compared to last week. Your highest flow window is 10 AM to 12 PM.',
+        isRead: true,
+        createdAt: new Date(Date.now() - 2 * 3600 * 1000),
+      },
+    ],
+  });
+
+  // User Settings
+  await prisma.userSettings.upsert({
+    where: { userId: user.id },
+    update: {},
+    create: {
+      userId: user.id,
+      theme: 'DARK',
+      defaultFocusMinutes: 25,
+      defaultBreakMinutes: 5,
+      weekStartDay: 'MONDAY',
+    },
+  });
+
+  console.log('Focus Intelligence Version 2 seed completed successfully! 🚀');
 }
 
 main()

@@ -23,6 +23,19 @@ model User {
   screenshots        Screenshot[]
   usageRecords       UsageRecord[]
   dailyMetrics       DailyMetric[]
+  
+  // Version 2 Relations
+  focusProfiles      FocusProfile[]
+  focusSessions      FocusSession[]
+  automationRules    AutomationRule[]
+  automationLogs     AutomationLog[]
+  blockRules         BlockRule[]
+  blockOverrides     BlockOverride[]
+  routineSchedules   RoutineSchedule[]
+  gamification       UserGamification?
+  achievements       Achievement[]
+  notifications      Notification[]
+  settings           UserSettings?
 }
 
 model Profile {
@@ -189,4 +202,169 @@ model DailyMetric {
   updatedAt              DateTime @updatedAt
 
   @@unique([userId, date])
+}
+
+// ==========================================
+// VERSION 2 MODELS
+// ==========================================
+
+model FocusProfile {
+  id              String         @id @default(uuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String         // "Deep Work", "Coding Sprint", "Study & DSA", "Reading"
+  durationMinutes Int            @default(25)
+  breakMinutes    Int            @default(5)
+  allowedApps     String         @default("[]") // JSON string of app names
+  blockedApps     String         @default("[\"Instagram\",\"YouTube\",\"Twitter\"]") // JSON string
+  icon            String         @default("Zap")
+  color           String         @default("#f59e0b")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  sessions        FocusSession[]
+}
+
+model FocusSession {
+  id                String        @id @default(uuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId         String?
+  profile           FocusProfile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  taskName          String        @default("Focused Session")
+  durationMinutes   Int           @default(25)
+  completedMinutes  Int           @default(0)
+  breakMinutes      Int           @default(5)
+  distractionsCount Int           @default(0)
+  status            String        @default("COMPLETED") // COMPLETED, INTERRUPTED, ABANDONED
+  notes             String?
+  startedAt         DateTime      @default(now())
+  endedAt           DateTime      @default(now())
+  createdAt         DateTime      @default(now())
+}
+
+model AutomationRule {
+  id                String          @id @default(uuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String          // e.g. "Warn when Reels > 45m"
+  triggerType       String          // SCREEN_TIME_LIMIT, REELS_LIMIT, FOCUS_START, DAILY_TARGET
+  conditionOperator String          // GREATER_THAN, EQUALS, CONTAINS
+  thresholdValue    String          // "45", "240"
+  actionType        String          // SHOW_NOTIFICATION, BLOCK_APP, START_FOCUS, WARN
+  actionTarget      String          // "Instagram", "All Social Media"
+  isEnabled         Boolean         @default(true)
+  lastTriggeredAt   DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  logs              AutomationLog[]
+}
+
+model AutomationLog {
+  id          String         @id @default(uuid())
+  ruleId      String
+  rule        AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message     String
+  triggeredAt DateTime       @default(now())
+}
+
+model BlockRule {
+  id          String          @id @default(uuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetType  String          @default("APP") // APP, WEBSITE, CATEGORY
+  targetValue String          // "Instagram", "youtube.com", "Social Media"
+  mode        String          @default("INSTANT") // INSTANT, FOCUS_ONLY, SCHEDULED
+  isEnabled   Boolean         @default(true)
+  startTime   String?         // "20:00"
+  endTime     String?         // "23:00"
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  overrides   BlockOverride[]
+}
+
+model BlockOverride {
+  id                      String    @id @default(uuid())
+  ruleId                  String
+  rule                    BlockRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason                  String    // e.g. "Need to verify client message"
+  overrideDurationMinutes Int       @default(15)
+  createdAt               DateTime  @default(now())
+}
+
+model RoutineSchedule {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String   // "Deep Work Coding", "Evening Restrict Reels", "Study DSA"
+  category    String   @default("Productivity")
+  startTime   String   // "10:00"
+  endTime     String   // "12:00"
+  daysOfWeek  String   @default("[\"MON\",\"TUE\",\"WED\",\"THU\",\"FRI\"]") // JSON array
+  isStrict    Boolean  @default(false)
+  isEnabled   Boolean  @default(true)
+  color       String   @default("#10b981")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserGamification {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  xp            Int       @default(1450)
+  level         Int       @default(4)
+  dailyStreak   Int       @default(7)
+  focusStreak   Int       @default(5)
+  longestStreak Int       @default(12)
+  lastActiveDate String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Achievement {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code        String    // FIRST_FOCUS, STREAK_7_DAYS, SHORTS_CURBED, DEEP_WORK_10H
+  title       String
+  description String
+  icon        String    @default("Award")
+  xpReward    Int       @default(100)
+  isUnlocked  Boolean   @default(false)
+  unlockedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, code])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   @default("WARNING") // WARNING, LIMIT, FOCUS, ACHIEVEMENT, INSIGHT
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model UserSettings {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme                  String   @default("DARK") // DARK, LIGHT, SYSTEM
+  dashboardLayout        String   @default("[\"screenTime\",\"shortForm\",\"attentionScore\",\"focusTime\",\"hotspots\",\"topApps\",\"categories\",\"devices\"]")
+  defaultFocusMinutes    Int      @default(25)
+  defaultBreakMinutes    Int      @default(5)
+  weekStartDay           String   @default("MONDAY")
+  notificationPreferences String  @default("{\"reelsWarning\":true,\"goalReached\":true,\"focusReminder\":true}")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 }

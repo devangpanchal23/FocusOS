@@ -10,6 +10,15 @@ import { DevicesPage } from './pages/DevicesPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { RegisterPage } from './pages/RegisterPage.js';
 
+// Version 2 Pages
+import { FocusPage } from './pages/FocusPage';
+import { BlockerPage } from './pages/BlockerPage';
+import { RoutinesPage } from './pages/RoutinesPage';
+import { AutomationPage } from './pages/AutomationPage';
+import { AchievementsPage } from './pages/AchievementsPage';
+import { ReportsPage } from './pages/ReportsPage';
+import { SettingsPage } from './pages/SettingsPage';
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token, isLoading } = useAuth();
 
@@ -37,7 +46,7 @@ export const App: React.FC = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Protected Application Routes */}
+          {/* Core V1 Routes */}
           <Route
             path="/"
             element={
@@ -75,6 +84,64 @@ export const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <DevicesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Version 2 Routes */}
+          <Route
+            path="/focus"
+            element={
+              <ProtectedRoute>
+                <FocusPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/blocking"
+            element={
+              <ProtectedRoute>
+                <BlockerPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/routines"
+            element={
+              <ProtectedRoute>
+                <RoutinesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/automation"
+            element={
+              <ProtectedRoute>
+                <AutomationPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/achievements"
+            element={
+              <ProtectedRoute>
+                <AchievementsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <ReportsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
               </ProtectedRoute>
             }
           />

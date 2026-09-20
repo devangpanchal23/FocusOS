@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 
 export interface AuthenticatedRequest extends Request {
   userId?: string;
+  user?: { id: string };
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'focus_intelligence_secret_key_super_secure_jwt_token_2026';
@@ -18,8 +19,12 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
 
     req.userId = decoded.userId;
+    req.user = { id: decoded.userId };
     next();
   } catch (error) {
     return res.status(401).json({ error: 'Invalid or expired authentication token.' });
   }
 }
+
+export const requireAuth = authMiddleware;
+export type AuthRequest = AuthenticatedRequest;

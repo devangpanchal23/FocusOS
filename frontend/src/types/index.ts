@@ -190,3 +190,176 @@ export interface TrendsData {
     dataCoverageText: string;
   };
 }
+
+// ==========================================
+// VERSION 2 INTERFACES
+// ==========================================
+
+export interface SmartInsight {
+  id: string;
+  category: 'PRODUCTIVITY' | 'SCROLLING' | 'HABIT' | 'GOAL' | 'FOCUS';
+  type: 'POSITIVE' | 'WARNING' | 'NEUTRAL';
+  title: string;
+  description: string;
+  evidence: string;
+  actionRecommendation?: string;
+  impactScore?: number;
+}
+
+export interface FocusProfile {
+  id: string;
+  userId: string;
+  name: string;
+  durationMinutes: number;
+  breakMinutes: number;
+  allowedApps: string;
+  blockedApps: string;
+  icon: string;
+  color: string;
+  createdAt: string;
+  _count?: {
+    sessions: number;
+  };
+}
+
+export interface FocusSession {
+  id: string;
+  userId: string;
+  profileId?: string | null;
+  profile?: FocusProfile;
+  taskName: string;
+  durationMinutes: number;
+  completedMinutes: number;
+  breakMinutes: number;
+  distractionsCount: number;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'INTERRUPTED' | 'ABANDONED';
+  notes?: string;
+  startedAt: string;
+  endedAt: string;
+  createdAt: string;
+}
+
+export interface FocusStats {
+  totalFocusMinutes: number;
+  completedSessionsCount: number;
+  totalSessionsAttempted: number;
+  cleanRatePercent: number;
+  averageMinutesPerSession: number;
+  distractionsLogged: number;
+}
+
+export interface BlockRule {
+  id: string;
+  userId: string;
+  targetType: 'APP' | 'WEBSITE' | 'CATEGORY';
+  targetValue: string;
+  mode: 'INSTANT' | 'FOCUS_ONLY' | 'SCHEDULED';
+  isEnabled: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+  isEffectivelyBlocked?: boolean;
+  isOverridden?: boolean;
+  overrideRemainingMinutes?: number;
+  createdAt: string;
+  overrides?: BlockOverride[];
+}
+
+export interface BlockOverride {
+  id: string;
+  ruleId: string;
+  userId: string;
+  reason: string;
+  overrideDurationMinutes: number;
+  createdAt: string;
+  rule?: BlockRule;
+}
+
+export interface RoutineSchedule {
+  id: string;
+  userId: string;
+  title: string;
+  category: string;
+  startTime: string;
+  endTime: string;
+  daysOfWeek: string;
+  parsedDays?: string[];
+  isStrict: boolean;
+  isEnabled: boolean;
+  color: string;
+  isCurrentlyActive?: boolean;
+  createdAt: string;
+}
+
+export interface UserGamification {
+  id: string;
+  userId: string;
+  xp: number;
+  level: number;
+  dailyStreak: number;
+  focusStreak: number;
+  longestStreak: number;
+  lastActiveDate?: string;
+  nextLevelXpCeil: number;
+  progressPercent: number;
+  achievements?: Achievement[];
+}
+
+export interface Achievement {
+  id: string;
+  userId: string;
+  code: string;
+  title: string;
+  description: string;
+  icon: string;
+  xpReward: number;
+  isUnlocked: boolean;
+  unlockedAt?: string | null;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: 'WARNING' | 'LIMIT' | 'FOCUS' | 'ACHIEVEMENT' | 'INFO';
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface AutomationRule {
+  id: string;
+  userId: string;
+  name: string;
+  triggerType: 'SCREEN_TIME_LIMIT' | 'REELS_LIMIT' | 'REEL_COUNT_LIMIT' | 'FOCUS_START';
+  conditionOperator: 'GREATER_THAN' | 'EQUALS' | 'CONTAINS';
+  thresholdValue: string;
+  actionType: 'SHOW_NOTIFICATION' | 'BLOCK_APP' | 'START_FOCUS' | 'WARN';
+  actionTarget: string;
+  isEnabled: boolean;
+  lastTriggeredAt?: string | null;
+  createdAt: string;
+  logs?: AutomationLog[];
+}
+
+export interface AutomationLog {
+  id: string;
+  ruleId: string;
+  userId: string;
+  message: string;
+  triggeredAt: string;
+  rule?: AutomationRule;
+}
+
+export interface UserSettings {
+  id: string;
+  userId: string;
+  theme: 'DARK' | 'LIGHT' | 'SYSTEM';
+  dashboardLayout: string;
+  parsedLayout: string[];
+  defaultFocusMinutes: number;
+  defaultBreakMinutes: number;
+  weekStartDay: string;
+  notificationPreferences: string;
+  parsedNotifPrefs: Record<string, boolean>;
+}
+
