@@ -92,3 +92,4 @@ cd backend
 npm test
 ```
 Verifies duration parsers, attention score calculations, and scroll cost translations.
+"# FocusOS" 
