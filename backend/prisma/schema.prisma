@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String         @id @default(uuid())
+  email              String         @unique
+  passwordHash       String
+  name               String
+  avatar             String?
+  timezone           String         @default("Asia/Kolkata")
+  dailyTargetMinutes Int            @default(240) // 4 hours goal
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  profile            Profile?
+  devices            Device[]
+  screenshots        Screenshot[]
+  usageRecords       UsageRecord[]
+  dailyMetrics       DailyMetric[]
+}
+
+model Profile {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sleepSchedule String?  @default("23:30 - 07:00")
+  workHours     String?  @default("09:00 - 18:00")
+  bio           String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Device {
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  deviceType   String        @default("PHONE") // PHONE, LAPTOP, DESKTOP, TABLET, OTHER
+  os           String        @default("ANDROID") // ANDROID, WINDOWS, MACOS, IOS, LINUX, OTHER
+  timezone     String?       @default("Asia/Kolkata")
+  lastSyncAt   DateTime?
+  status       String        @default("HEALTHY") // HEALTHY, SYNCING, INACTIVE
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  screenshots  Screenshot[]
+  usageRecords UsageRecord[]
+}
+
+model Screenshot {
+  id           String       @id @default(uuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId     String?
+  device       Device?      @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  filePath     String
+  fileHash     String       // SHA-256 for duplicate detection
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  status       String       @default("UPLOADED") // UPLOADED, PROCESSING, EXTRACTED, CONFIRMED, FAILED, DUPLICATE
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  extractions  Extraction[]
+  usageRecords UsageRecord[]
+}
+
+model Extraction {
+  id              String            @id @default(uuid())
+  screenshotId    String            @unique
+  screenshot      Screenshot        @relation(fields: [screenshotId], references: [id], onDelete: Cascade)
+  detectedDate    String?           // YYYY-MM-DD
+  detectedDevice  String?
+  screenshotClass String            @default("UNKNOWN") // ANDROID_DIGITAL_WELLBEING, WINDOWS_BATTERY_USAGE, SHORT_FORM_TRACKER, OTHER
+  confidence      Float             @default(0.0) // 0.0 to 1.0
+  rawText         String?
+  status          String            @default("NEEDS_REVIEW") // NEEDS_REVIEW, CONFIRMED, REJECTED
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  fields          ExtractionField[]
+}
+
+model ExtractionField {
+  id                 String     @id @default(uuid())
+  extractionId       String
+  extraction         Extraction @relation(fields: [extractionId], references: [id], onDelete: Cascade)
+  fieldKey           String     // "app:Instagram", "totalScreenTime", "notifications", "unlocks", "reelCount"
+  detectedValue      String
+  confirmedValue     String?
+  confidence         Float      @default(0.9)
+  categorySuggestion String?
+  status             String     @default("DETECTED") // DETECTED, EDITED, CONFIRMED, REJECTED
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+}
+
+model Category {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  color        String        @default("#6366f1")
+  isProductive Boolean       @default(false)
+  isShortForm  Boolean       @default(false)
+  icon         String        @default("Tag")
+  createdAt    DateTime      @default(now())
+
+  applications Application[]
+  usageRecords UsageRecord[]
+}
+
+model Application {
+  id                String             @id @default(uuid())
+  canonicalName     String             @unique
+  icon              String?
+  defaultCategoryId String?
+  defaultCategory   Category?          @relation(fields: [defaultCategoryId], references: [id], onDelete: SetNull)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  aliases           ApplicationAlias[]
+  usageRecords      UsageRecord[]
+}
+
+model ApplicationAlias {
+  id            String      @id @default(uuid())
+  alias         String      @unique
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+}
+
+model UsageRecord {
+  id                String      @id @default(uuid())
+  userId            String
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId          String?
+  device            Device?     @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  applicationId     String
+  application       Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  categoryId        String?
+  category          Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  screenshotId      String?
+  screenshot        Screenshot? @relation(fields: [screenshotId], references: [id], onDelete: SetNull)
+  
+  date              String      // YYYY-MM-DD
+  activeMinutes     Int         @default(0)
+  backgroundMinutes Int         @default(0)
+  reelCount         Int         @default(0)
+  shortsMinutes     Int         @default(0)
+  sessionCount      Int         @default(1)
+  source            String      @default("AI_EXTRACTED") // AI_EXTRACTED, USER_ENTERED, ESTIMATED
+  confidence        Float       @default(1.0)
+  status            String      @default("CONFIRMED") // CONFIRMED, ESTIMATED, REJECTED
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([userId, date])
+  @@index([userId, deviceId, date])
+}
+
+model DailyMetric {
+  id                     String   @id @default(uuid())
+  userId                 String
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date                   String   // YYYY-MM-DD
+  totalScreenTimeMinutes Int      @default(0)
+  activeMinutes          Int      @default(0)
+  backgroundMinutes      Int      @default(0)
+  shortFormMinutes       Int      @default(0)
+  productiveMinutes      Int      @default(0)
+  entertainmentMinutes   Int      @default(0)
+  socialMinutes          Int      @default(0)
+  communicationMinutes   Int      @default(0)
+  otherMinutes           Int      @default(0)
+  reelCount              Int      @default(0)
+  notificationCount      Int      @default(0)
+  unlockCount            Int      @default(0)
+  attentionScore         Int      @default(50) // 0 - 100
+  dataConfidence         Float    @default(1.0)
+  coverageStatus         String   @default("CONFIRMED") // CONFIRMED, PARTIAL, ESTIMATED
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@unique([userId, date])
+}
