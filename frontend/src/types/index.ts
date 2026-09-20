@@ -363,3 +363,207 @@ export interface UserSettings {
   parsedNotifPrefs: Record<string, boolean>;
 }
 
+// ==========================================
+// VERSION 3 TYPES — INTELLIGENT ECOSYSTEM
+// ==========================================
+
+export interface AiChatMessage {
+  id: string;
+  sessionId: string;
+  role: 'USER' | 'ASSISTANT' | 'SYSTEM';
+  content: string;
+  metadata?: string | null;
+  createdAt: string;
+}
+
+export interface AssistantResponse {
+  answer: string;
+  evidence: string[];
+  actionRecommendation?: {
+    label: string;
+    route: string;
+  };
+  metricsContext: {
+    todayScreenTime: string;
+    todayShortForm: string;
+    attentionScore: number;
+    todayFocusMinutes: number;
+  };
+}
+
+export interface CoachingProfile {
+  id: string;
+  userId: string;
+  mode: 'STUDY' | 'CODING' | 'DEEP_WORK' | 'WELLNESS' | 'EXAM_PREP' | 'GENERAL';
+  targetDailyFocusHours: number;
+  tone: 'ENCOURAGING' | 'DIRECT' | 'ANALYTICAL' | 'CHALLENGING';
+  lastAdvice?: string;
+}
+
+export interface CoachAssessment {
+  mode: string;
+  targetDailyFocusHours: number;
+  tone: string;
+  greeting: string;
+  currentAssessment: string;
+  priorityDirective: string;
+  keyStats: {
+    todayFocusCompleted: string;
+    targetFocusHours: string;
+    shortFormCurbed: boolean;
+    streakStatus: string;
+  };
+  recommendedNextStep: {
+    title: string;
+    description: string;
+    actionLabel: string;
+    route: string;
+  };
+}
+
+export interface PredictionSummary {
+  projectedScreenTimeMinutes: number;
+  projectedScreenTimeFormatted: string;
+  confidenceInterval: {
+    lowMinutes: number;
+    lowFormatted: string;
+    highMinutes: number;
+    highFormatted: string;
+  };
+  shortFormRiskPercent: number;
+  shortFormRiskLevel: 'LOW' | 'MODERATE' | 'ELEVATED' | 'CRITICAL';
+  hourlyVulnerabilityForecast: {
+    hour: string;
+    riskPercent: number;
+    isPeakRisk: boolean;
+  }[];
+  targetAchievementLikelihood: number;
+  activeRiskCount: number;
+}
+
+export interface BehavioralRiskLog {
+  id: string;
+  userId: string;
+  riskType: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  title: string;
+  description: string;
+  evidence: string;
+  actionRecommendation: string;
+  isDismissed: boolean;
+  createdAt: string;
+}
+
+export interface SmartGoal {
+  id: string;
+  userId: string;
+  title: string;
+  goalType: 'SCREEN_TIME_LIMIT' | 'FOCUS_HOURS' | 'STUDY_HOURS' | 'CODING_HOURS' | 'REELS_MAX';
+  targetValue: number;
+  period: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  currentProgress: number;
+  progressPercent: number;
+  isAchieved: boolean;
+  status: 'ACTIVE' | 'COMPLETED' | 'FAILED' | 'PAUSED';
+  milestones: string;
+  parsedMilestones: { label: string; completed: boolean }[];
+  createdAt: string;
+}
+
+export interface DailyPlanBlock {
+  id: string;
+  planId: string;
+  startTime: string;
+  endTime: string;
+  taskName: string;
+  category: string;
+  isCompleted: boolean;
+  isFixed: boolean;
+}
+
+export interface DailyPlan {
+  id: string;
+  userId: string;
+  date: string;
+  summary?: string;
+  blocks: DailyPlanBlock[];
+}
+
+export interface AccountabilityCircle {
+  id: string;
+  name: string;
+  description?: string;
+  inviteCode: string;
+  creatorId: string;
+  isCreator: boolean;
+  memberCount: number;
+  members: {
+    id: string;
+    name: string;
+    email: string;
+    joinedAt: string;
+  }[];
+}
+
+export interface CircleLeaderboardItem {
+  userId: string;
+  name: string;
+  isCurrentUser: boolean;
+  weeklyProductiveHours: number;
+  attentionScore: number;
+  streak: number;
+  level: number;
+  xp: number;
+  rank: number;
+}
+
+export interface ApiKeyItem {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  scopes: string;
+  lastUsedAt?: string | null;
+  createdAt: string;
+  rawKey?: string;
+}
+
+export interface WebhookItem {
+  id: string;
+  userId: string;
+  url: string;
+  secret: string;
+  events: string;
+  isEnabled: boolean;
+  createdAt: string;
+}
+
+export interface PrivacySummary {
+  dataInventory: {
+    screenshots: number;
+    extractions: number;
+    dailyMetrics: number;
+    focusSessions: number;
+    blockRules: number;
+  };
+  retentionPolicy: {
+    rawScreenshotsDays: number;
+    ocrAggregatesDays: number;
+    anonymizedTraining: boolean;
+  };
+  encryptionStatus: {
+    atRest: string;
+    inTransit: string;
+    keyOwnership: string;
+  };
+  auditLogs: PrivacyAuditLogItem[];
+}
+
+export interface PrivacyAuditLogItem {
+  id: string;
+  userId: string;
+  action: string;
+  details: string;
+  createdAt: string;
+}
+
+

@@ -197,3 +197,78 @@ export const api = {
   getExportUrl: (type: 'csv' | 'json' | 'digest') => `/api/export/${type}`,
 };
 
+export const v3Api = {
+  // AI Assistant
+  getHistory: () => request<{ messages: any[] }>('/v3/assistant/history'),
+  sendMessage: (content: string, sessionId?: string) =>
+    request<any>('/v3/assistant/chat', { method: 'POST', body: JSON.stringify({ content, sessionId }) }),
+  clearHistory: () => request<{ success: boolean }>('/v3/assistant/history', { method: 'DELETE' }),
+
+  // AI Coach
+  getProfile: () => request<{ profile: any }>('/v3/coach/profile'),
+  updateProfile: (data: any) =>
+    request<{ profile: any }>('/v3/coach/profile', { method: 'PUT', body: JSON.stringify(data) }),
+  getAssessment: () => request<any>('/v3/coach/assessment'),
+
+  // Predictions & Risk
+  getPredictions: () => request<any>('/v3/predictions'),
+  getRisks: () => request<{ risks: any[] }>('/v3/predictions/risks'),
+  dismissRisk: (riskId: string) =>
+    request<any>(`/v3/predictions/risks/${riskId}/dismiss`, { method: 'POST' }),
+
+  // SMART Goals
+  getGoals: () => request<{ goals: any[] }>('/v3/goals'),
+  createGoal: (data: any) =>
+    request<{ goal: any }>('/v3/goals', { method: 'POST', body: JSON.stringify(data) }),
+  updateGoal: (id: string, data: any) =>
+    request<{ goal: any }>(`/v3/goals/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteGoal: (id: string) =>
+    request<any>(`/v3/goals/${id}`, { method: 'DELETE' }),
+  generateGoalAiPlan: (prompt: string) =>
+    request<any>('/v3/goals/plan', { method: 'POST', body: JSON.stringify({ prompt }) }),
+
+  // AI Daily Planner
+  getDailyPlan: (date?: string) =>
+    request<{ plan: any }>(`/v3/planner${date ? `?date=${date}` : ''}`),
+  generateDailyAiPlan: (date?: string) =>
+    request<{ plan: any }>('/v3/planner/generate', { method: 'POST', body: JSON.stringify({ date }) }),
+  addBlock: (data: any) =>
+    request<{ block: any }>('/v3/planner/blocks', { method: 'POST', body: JSON.stringify(data) }),
+  toggleBlock: (blockId: string) =>
+    request<{ block: any }>(`/v3/planner/blocks/${blockId}/toggle`, { method: 'PATCH' }),
+  deleteBlock: (blockId: string) =>
+    request<any>(`/v3/planner/blocks/${blockId}`, { method: 'DELETE' }),
+
+  // Accountability Circles
+  getCircles: () => request<{ circles: any[] }>('/v3/circles'),
+  createCircle: (data: { name: string; description?: string }) =>
+    request<{ circle: any }>('/v3/circles', { method: 'POST', body: JSON.stringify(data) }),
+  joinCircle: (inviteCode: string) =>
+    request<any>('/v3/circles/join', { method: 'POST', body: JSON.stringify({ inviteCode }) }),
+  leaveCircle: (circleId: string) =>
+    request<any>(`/v3/circles/${circleId}/leave`, { method: 'POST' }),
+  getLeaderboard: (circleId: string) =>
+    request<{ circleId: string; circleName: string; leaderboard: any[] }>(`/v3/circles/${circleId}/leaderboard`),
+
+  // Developer Platform
+  getApiKeys: () => request<{ keys: any[] }>('/v3/developer/keys'),
+  createApiKey: (data: { name: string; scopes?: string }) =>
+    request<{ key: any }>('/v3/developer/keys', { method: 'POST', body: JSON.stringify(data) }),
+  revokeApiKey: (keyId: string) =>
+    request<any>(`/v3/developer/keys/${keyId}`, { method: 'DELETE' }),
+  getWebhooks: () => request<{ webhooks: any[] }>('/v3/developer/webhooks'),
+  createWebhook: (data: { url: string; events: string[] }) =>
+    request<{ webhook: any }>('/v3/developer/webhooks', { method: 'POST', body: JSON.stringify(data) }),
+  deleteWebhook: (webhookId: string) =>
+    request<any>(`/v3/developer/webhooks/${webhookId}`, { method: 'DELETE' }),
+  testWebhook: (webhookId: string) =>
+    request<any>(`/v3/developer/webhooks/${webhookId}/test`, { method: 'POST' }),
+
+  // Privacy Center
+  getPrivacySummary: () => request<any>('/v3/privacy/summary'),
+  purgeData: (scope: string) =>
+    request<any>('/v3/privacy/purge', { method: 'POST', body: JSON.stringify({ scope }) }),
+  getAuditLogs: () => request<{ logs: any[] }>('/v3/privacy/audit-logs'),
+};
+
+

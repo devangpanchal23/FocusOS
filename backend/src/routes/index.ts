@@ -12,6 +12,7 @@ import { notificationRouter } from './notification.routes.js';
 import { settingsRouter } from './settings.routes.js';
 import { exportRouter } from './export.routes.js';
 import { insightRouter } from './insight.routes.js';
+import { v3Router } from './v3/v3.routes.js';
 
 export const apiRouter = Router();
 
@@ -32,11 +33,15 @@ apiRouter.use('/settings', settingsRouter);
 apiRouter.use('/export', exportRouter);
 apiRouter.use('/insights', insightRouter);
 
+// V3 Intelligent Ecosystem Endpoints
+apiRouter.use('/v3', v3Router);
+
 apiRouter.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     service: 'Focus Intelligence API',
-    version: '2.0.0',
+    version: '3.0.0',
     timestamp: new Date().toISOString(),
   });
 });
+

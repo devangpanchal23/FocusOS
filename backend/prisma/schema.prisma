@@ -36,6 +36,19 @@ model User {
   achievements       Achievement[]
   notifications      Notification[]
   settings           UserSettings?
+
+  // Version 3 Relations
+  aiChatSessions     AiChatSession[]
+  aiChatMessages     AiChatMessage[]
+  coachingProfile    CoachingProfile?
+  smartGoals         SmartGoal[]
+  dailyPlans         DailyPlan[]
+  behavioralRisks    BehavioralRiskLog[]
+  circleMemberships  CircleMember[]
+  orgMemberships     OrgMember[]
+  apiKeys            ApiKey[]
+  webhookSubs        WebhookSubscription[]
+  privacyAuditLogs   PrivacyAuditLog[]
 }
 
 model Profile {
@@ -368,3 +381,184 @@ model UserSettings {
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 }
+
+// ==========================================
+// VERSION 3 MODELS — INTELLIGENT ECOSYSTEM
+// ==========================================
+
+model AiChatSession {
+  id        String          @id @default(uuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String          @default("Productivity Conversation")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  messages  AiChatMessage[]
+}
+
+model AiChatMessage {
+  id        String        @id @default(uuid())
+  sessionId String
+  session   AiChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String        // USER, ASSISTANT, SYSTEM
+  content   String
+  metadata  String?       // JSON string of referenced data or action suggestions
+  createdAt DateTime      @default(now())
+}
+
+model CoachingProfile {
+  id                    String   @id @default(uuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mode                  String   @default("GENERAL") // STUDY, CODING, DEEP_WORK, WELLNESS, EXAM_PREP, GENERAL
+  targetDailyFocusHours Float    @default(3.0)
+  tone                  String   @default("ENCOURAGING") // ENCOURAGING, DIRECT, ANALYTICAL, CHALLENGING
+  lastAdvice            String?
+  updatedAt             DateTime @updatedAt
+}
+
+model SmartGoal {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String   // e.g. "Study 3 hours daily", "Keep Reels under 30m"
+  goalType        String   // SCREEN_TIME_LIMIT, FOCUS_HOURS, STUDY_HOURS, CODING_HOURS, REELS_MAX
+  targetValue     Float    // target numeric value in minutes or hours
+  period          String   @default("DAILY") // DAILY, WEEKLY, MONTHLY
+  currentProgress Float    @default(0)
+  status          String   @default("ACTIVE") // ACTIVE, COMPLETED, FAILED, PAUSED
+  milestones      String   @default("[]") // JSON string of sub-milestones
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model DailyPlan {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      String           // YYYY-MM-DD
+  summary   String?
+  createdAt DateTime         @default(now())
+
+  blocks    DailyPlanBlock[]
+
+  @@unique([userId, date])
+}
+
+model DailyPlanBlock {
+  id          String    @id @default(uuid())
+  planId      String
+  plan        DailyPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  startTime   String    // "09:00"
+  endTime     String    // "10:30"
+  taskName    String
+  category    String    @default("Deep Work")
+  isCompleted Boolean   @default(false)
+  isFixed     Boolean   @default(false)
+}
+
+model BehavioralRiskLog {
+  id                   String   @id @default(uuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  riskType             String   // LATE_NIGHT_SPIKE, CONTEXT_SWITCHING, OVERRIDE_FATIGUE, SESSION_DECAY
+  severity             String   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  title                String
+  description          String
+  evidence             String
+  actionRecommendation String
+  isDismissed          Boolean  @default(false)
+  createdAt            DateTime @default(now())
+}
+
+model AccountabilityCircle {
+  id          String         @id @default(uuid())
+  name        String
+  description String?
+  inviteCode  String         @unique
+  creatorId   String
+  createdAt   DateTime       @default(now())
+
+  members     CircleMember[]
+}
+
+model CircleMember {
+  id        String               @id @default(uuid())
+  circleId  String
+  circle    AccountabilityCircle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime             @default(now())
+
+  @@unique([circleId, userId])
+}
+
+model Organization {
+  id        String      @id @default(uuid())
+  name      String
+  slug      String      @unique
+  createdAt DateTime    @default(now())
+
+  teams     Team[]
+  members   OrgMember[]
+}
+
+model Team {
+  id        String      @id @default(uuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime    @default(now())
+
+  members   OrgMember[]
+}
+
+model OrgMember {
+  id       String       @id @default(uuid())
+  orgId    String
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  teamId   String?
+  team     Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  userId   String
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     String       @default("MEMBER") // OWNER, ADMIN, MANAGER, MEMBER
+  joinedAt DateTime     @default(now())
+
+  @@unique([orgId, userId])
+}
+
+model ApiKey {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String    // e.g. "Personal CLI", "Desktop Sync Daemon"
+  keyPrefix  String    // "fk_live_..."
+  hashedKey  String    @unique
+  scopes     String    @default("read:metrics,write:sessions")
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model WebhookSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url       String
+  secret    String
+  events    String   // JSON array: ["focus.completed", "goal.achieved"]
+  isEnabled Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model PrivacyAuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String   // EXPORT_CSV, EXPORT_JSON, PURGE_HISTORY, UPDATE_CONSENT
+  details   String
+  createdAt DateTime @default(now())
+}
+

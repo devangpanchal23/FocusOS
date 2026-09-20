@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FocusTimer } from '../components/focus/FocusTimer';
+import { SoundscapePlayer } from '../components/focus/SoundscapePlayer';
 import { api } from '../services/api';
 import { FocusProfile, FocusSession, FocusStats } from '../types';
 import { Zap, Clock, ShieldCheck, AlertCircle, Plus, Sparkles, CheckCircle2, History } from 'lucide-react';
@@ -125,8 +126,11 @@ export const FocusPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Focus Timer */}
-      <FocusTimer profiles={profiles} onSessionFinished={loadData} />
+      {/* Main Focus Timer & Procedural Soundscapes */}
+      <div className="space-y-6">
+        <FocusTimer profiles={profiles} onSessionFinished={loadData} />
+        <SoundscapePlayer />
+      </div>
 
       {/* Recent Sessions History Table */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-sm">

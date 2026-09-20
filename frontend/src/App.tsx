@@ -19,6 +19,14 @@ import { AchievementsPage } from './pages/AchievementsPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
+// Version 3 Pages
+import { AiAssistantPage } from './pages/AiAssistantPage';
+import { PredictionsPage } from './pages/PredictionsPage';
+import { PlannerPage } from './pages/PlannerPage';
+import { CommunityPage } from './pages/CommunityPage';
+import { PrivacyPage } from './pages/PrivacyPage';
+import { DeveloperPage } from './pages/DeveloperPage';
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token, isLoading } = useAuth();
 
@@ -142,6 +150,56 @@ export const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Version 3 Intelligent Ecosystem Routes */}
+          <Route
+            path="/ai-assistant"
+            element={
+              <ProtectedRoute>
+                <AiAssistantPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/predictions"
+            element={
+              <ProtectedRoute>
+                <PredictionsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/planner"
+            element={
+              <ProtectedRoute>
+                <PlannerPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/community"
+            element={
+              <ProtectedRoute>
+                <CommunityPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/privacy"
+            element={
+              <ProtectedRoute>
+                <PrivacyPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/developer"
+            element={
+              <ProtectedRoute>
+                <DeveloperPage />
               </ProtectedRoute>
             }
           />

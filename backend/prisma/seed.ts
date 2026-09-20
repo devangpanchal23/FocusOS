@@ -587,7 +587,202 @@ async function main() {
     },
   });
 
-  console.log('Focus Intelligence Version 2 seed completed successfully! 🚀');
+  // ==========================================
+  // VERSION 3 SEEDING
+  // ==========================================
+
+  // Coaching Profile
+  await prisma.coachingProfile.upsert({
+    where: { userId: user.id },
+    update: {},
+    create: {
+      userId: user.id,
+      mode: 'CODING',
+      targetDailyFocusHours: 4.0,
+      tone: 'ENCOURAGING',
+      lastAdvice: 'Your highest cognitive throughput happens between 10 AM – 12 PM. Shield that window with strict blocking.',
+    },
+  });
+
+  // SMART Goals
+  await prisma.smartGoal.deleteMany({ where: { userId: user.id } });
+  await prisma.smartGoal.createMany({
+    data: [
+      {
+        userId: user.id,
+        title: 'Deep Work Flow Target',
+        goalType: 'FOCUS_HOURS',
+        targetValue: 240, // 4 hours in minutes
+        period: 'DAILY',
+        currentProgress: 195,
+        status: 'ACTIVE',
+        milestones: JSON.stringify([
+          { label: 'Morning Sprint', completed: true },
+          { label: 'Afternoon Architecture Block', completed: true },
+          { label: 'Evening Review', completed: false },
+        ]),
+      },
+      {
+        userId: user.id,
+        title: 'Curb Short-Form Feeds',
+        goalType: 'REELS_MAX',
+        targetValue: 45, // max 45 minutes
+        period: 'DAILY',
+        currentProgress: 68,
+        status: 'ACTIVE',
+        milestones: JSON.stringify([
+          { label: 'Zero reels before 6 PM', completed: true },
+          { label: 'Lock feeds past 9 PM', completed: false },
+        ]),
+      },
+      {
+        userId: user.id,
+        title: 'Algorithms & Study Mastery',
+        goalType: 'STUDY_HOURS',
+        targetValue: 90, // 90 min daily
+        period: 'DAILY',
+        currentProgress: 60,
+        status: 'ACTIVE',
+        milestones: JSON.stringify([
+          { label: '2 LeetCode Mediums', completed: true },
+          { label: 'System Design reading', completed: false },
+        ]),
+      },
+    ],
+  });
+
+  // AI Daily Plan
+  const todayStr = new Date().toISOString().split('T')[0];
+  await prisma.dailyPlan.deleteMany({ where: { userId: user.id } });
+  const plan = await prisma.dailyPlan.create({
+    data: {
+      userId: user.id,
+      date: todayStr,
+      summary: 'High-leverage focus day prioritized for core engineering and short-form reduction.',
+      blocks: {
+        create: [
+          {
+            startTime: '09:00',
+            endTime: '11:00',
+            taskName: 'FocusOS V3 Architecture & Engine Design',
+            category: 'Deep Work',
+            isCompleted: true,
+            isFixed: true,
+          },
+          {
+            startTime: '11:30',
+            endTime: '13:00',
+            taskName: 'API Endpoint Synthesis & Typecheck',
+            category: 'Deep Work',
+            isCompleted: true,
+            isFixed: false,
+          },
+          {
+            startTime: '14:30',
+            endTime: '16:00',
+            taskName: 'Companion Browser Extension & UI Testing',
+            category: 'Deep Work',
+            isCompleted: false,
+            isFixed: false,
+          },
+          {
+            startTime: '17:30',
+            endTime: '19:00',
+            taskName: 'Algorithms & System Design Review',
+            category: 'Study',
+            isCompleted: false,
+            isFixed: false,
+          },
+          {
+            startTime: '21:00',
+            endTime: '22:30',
+            taskName: 'Digital Wind-Down & Evening Reflection',
+            category: 'Wellbeing',
+            isCompleted: false,
+            isFixed: true,
+          },
+        ],
+      },
+    },
+  });
+
+  // Behavioral Risk Logs
+  await prisma.behavioralRiskLog.deleteMany({ where: { userId: user.id } });
+  await prisma.behavioralRiskLog.createMany({
+    data: [
+      {
+        userId: user.id,
+        riskType: 'LATE_NIGHT_SPIKE',
+        severity: 'HIGH',
+        title: 'Late Night Screen-Time Surge Detected',
+        description: 'Screen usage extended past 11:30 PM on 3 of the last 4 days.',
+        evidence: 'Average late-night screen time: 1h 14m, predominantly on Instagram and YouTube.',
+        actionRecommendation: 'Activate the Evening Digital Sunset routine to automatically shield apps at 10 PM.',
+        isDismissed: false,
+      },
+      {
+        userId: user.id,
+        riskType: 'CONTEXT_SWITCHING',
+        severity: 'MEDIUM',
+        title: 'Elevated App Context Switching',
+        description: 'Frequent toggling between VS Code, WhatsApp, and Chrome during work sessions.',
+        evidence: 'Average 18 application switches per hour during your 2 PM - 4 PM window.',
+        actionRecommendation: 'Use Strict Mode Pomodoro sessions to minimize notification tabs.',
+        isDismissed: false,
+      },
+    ],
+  });
+
+  // Accountability Circle
+  const circle = await prisma.accountabilityCircle.upsert({
+    where: { inviteCode: 'FOCUS-V3-ALPHA' },
+    update: {},
+    create: {
+      name: 'Full-Stack Flow Circle',
+      description: 'Engineers & builders committing to 4+ hours of deep-work daily with zero short-form leaks.',
+      inviteCode: 'FOCUS-V3-ALPHA',
+      creatorId: user.id,
+      members: {
+        create: [
+          { userId: user.id },
+        ],
+      },
+    },
+  });
+
+  // Developer API Key
+  await prisma.apiKey.deleteMany({ where: { userId: user.id } });
+  await prisma.apiKey.create({
+    data: {
+      userId: user.id,
+      name: 'Personal CLI & Daemon',
+      keyPrefix: 'fk_live_devang',
+      hashedKey: 'fk_live_9f83a21b67e4198c8e1a7b6c5d4e3f2a1b0c9d8e',
+      scopes: 'read:metrics,write:sessions,manage:blocking',
+      lastUsedAt: new Date(),
+    },
+  });
+
+  // AI Chat Session & Welcome Grounding
+  await prisma.aiChatSession.deleteMany({ where: { userId: user.id } });
+  const chatSession = await prisma.aiChatSession.create({
+    data: {
+      userId: user.id,
+      title: 'Telemetry & Habit Inquiry',
+      messages: {
+        create: [
+          {
+            userId: user.id,
+            role: 'ASSISTANT',
+            content: `Hello ${user.name}! I am your FocusOS AI Productivity Assistant. I have verified access to your telemetry (7h 48m screen time logged today, 72/100 Attention Score, and 4 completed deep-work sessions). What would you like to analyze or plan today?`,
+            metadata: JSON.stringify({ verified: true, date: todayStr }),
+          },
+        ],
+      },
+    },
+  });
+
+  console.log('Focus Intelligence Version 3 ecosystem seeded successfully! 🚀');
 }
 
 main()
