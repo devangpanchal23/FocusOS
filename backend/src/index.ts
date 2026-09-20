@@ -40,7 +40,18 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Focus Intelligence API server running on http://localhost:${PORT}`);
   console.log(`Serving uploads from ${uploadDir}`);
+});
+
+server.on('error', (error: any) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`\n⚠️ Port ${PORT} is already in use by another process.`);
+    console.error(`To release port ${PORT}, run: npx kill-port ${PORT}\n`);
+    process.exit(1);
+  } else {
+    console.error('Server error:', error);
+    process.exit(1);
+  }
 });
