@@ -25,6 +25,7 @@ export class TimelineController {
         sourceTypes: parseListParam(req.query.sourceTypes),
         cursor: req.query.cursor as string | undefined,
         limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
+        search: req.query.search as string | undefined,
       });
 
       return res.json(result);

@@ -35,4 +35,13 @@ export class IdleTracker {
   reset(now: number = Date.now()): void {
     this.lastChangeAt = now;
   }
+
+  /**
+   * Timestamp of the last app/window signature change. Exposed so
+   * powerEvents.ts can derive a LOCK/UNLOCK proxy from sustained idle
+   * periods without duplicating this tracker's state.
+   */
+  getLastChangeAt(): number {
+    return this.lastChangeAt;
+  }
 }

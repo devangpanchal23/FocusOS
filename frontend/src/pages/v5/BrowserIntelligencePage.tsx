@@ -7,6 +7,10 @@ import {
   Plus,
   Trash2,
   Compass,
+  Shuffle,
+  Monitor,
+  X,
+  Tag,
 } from 'lucide-react';
 import {
   BarChart,
@@ -18,15 +22,24 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { v5Api, BrowserSummary, DomainAnalytics, BrowserExclusionRule } from '../../services/v5.service';
+import {
+  v5Api,
+  BrowserSummary,
+  DomainAnalytics,
+  BrowserExclusionRule,
+  TabSwitchingStats,
+  BrowserInstance,
+} from '../../services/v5.service';
 
 const BAR_COLORS = ['#f59e0b', '#ea580c', '#6366f1', '#10b981', '#f43f5e', '#06b6d4'];
 
 export const BrowserIntelligencePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'SUMMARY' | 'DOMAINS' | 'EXCLUSIONS'>('SUMMARY');
+  const [activeTab, setActiveTab] = useState<'SUMMARY' | 'DOMAINS' | 'TAB_SWITCHING' | 'INSTANCES' | 'EXCLUSIONS'>('SUMMARY');
   const [summary, setSummary] = useState<BrowserSummary | null>(null);
   const [domains, setDomains] = useState<DomainAnalytics[]>([]);
   const [exclusions, setExclusions] = useState<BrowserExclusionRule[]>([]);
+  const [tabSwitching, setTabSwitching] = useState<TabSwitchingStats | null>(null);
+  const [instances, setInstances] = useState<BrowserInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,21 +47,27 @@ export const BrowserIntelligencePage: React.FC = () => {
   const [newReason, setNewReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const [selectedDomain, setSelectedDomain] = useState<DomainAnalytics | null>(null);
+
   const todayStr = new Date().toISOString().split('T')[0];
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [summaryRes, domainsRes, exclusionsRes] = await Promise.allSettled([
+      const [summaryRes, domainsRes, exclusionsRes, tabSwitchRes, instancesRes] = await Promise.allSettled([
         v5Api.browser.getSummary(todayStr),
         v5Api.browser.getDomains(),
         v5Api.browser.getExclusions(),
+        v5Api.browser.getTabSwitching(),
+        v5Api.browser.getInstances(),
       ]);
 
       if (summaryRes.status === 'fulfilled') setSummary(summaryRes.value);
       if (domainsRes.status === 'fulfilled') setDomains(Array.isArray(domainsRes.value) ? domainsRes.value : []);
       if (exclusionsRes.status === 'fulfilled') setExclusions(Array.isArray(exclusionsRes.value) ? exclusionsRes.value : []);
+      if (tabSwitchRes.status === 'fulfilled') setTabSwitching(tabSwitchRes.value);
+      if (instancesRes.status === 'fulfilled') setInstances(Array.isArray(instancesRes.value) ? instancesRes.value : []);
 
       if (summaryRes.status === 'rejected' && domainsRes.status === 'rejected' && exclusionsRes.status === 'rejected') {
         setError('Unable to reach Browser Intelligence services yet.');
@@ -116,8 +135,8 @@ export const BrowserIntelligencePage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#14141f] border border-[#242436]">
-          {(['SUMMARY', 'DOMAINS', 'EXCLUSIONS'] as const).map((tab) => (
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#14141f] border border-[#242436] flex-wrap">
+          {(['SUMMARY', 'DOMAINS', 'TAB_SWITCHING', 'INSTANCES', 'EXCLUSIONS'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -127,7 +146,10 @@ export const BrowserIntelligencePage: React.FC = () => {
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              {tab.charAt(0) + tab.slice(1).toLowerCase()}
+              {tab
+                .split('_')
+                .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+                .join(' ')}
             </button>
           ))}
         </div>
@@ -240,7 +262,8 @@ export const BrowserIntelligencePage: React.FC = () => {
                   {domains.map((d, i) => (
                     <div
                       key={`${d.domain}-${i}`}
-                      className="p-3.5 rounded-xl bg-[#161622] border border-[#222232] flex items-center justify-between gap-3"
+                      onClick={() => setSelectedDomain(d)}
+                      className="p-3.5 rounded-xl bg-[#161622] border border-[#222232] flex items-center justify-between gap-3 cursor-pointer hover:border-amber-500/40 transition"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <Globe className="w-4 h-4 text-zinc-500 shrink-0" />
@@ -273,6 +296,102 @@ export const BrowserIntelligencePage: React.FC = () => {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB_SWITCHING TAB */}
+          {activeTab === 'TAB_SWITCHING' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-5 rounded-2xl bg-[#121218] border border-[#20202c] flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                    <Shuffle className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-zinc-400 uppercase tracking-wide">Total Tab Switches</p>
+                    <p className="text-xl font-bold text-white font-mono">
+                      {tabSwitching?.totalSwitches != null ? tabSwitching.totalSwitches : '—'}
+                    </p>
+                  </div>
+                </div>
+                <div className="p-5 rounded-2xl bg-[#121218] border border-[#20202c] flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-zinc-400 uppercase tracking-wide">Avg Seconds Before Switch</p>
+                    <p className="text-xl font-bold text-white font-mono">
+                      {tabSwitching?.avgSecondsBeforeSwitch != null ? `${Math.round(tabSwitching.avgSecondsBeforeSwitch)}s` : '—'}
+                    </p>
+                  </div>
+                </div>
+                <div className="p-5 rounded-2xl bg-[#121218] border border-[#20202c] flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+                    <BarChart3 className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-zinc-400 uppercase tracking-wide">Peak Switching Hour</p>
+                    <p className="text-xl font-bold text-white font-mono">
+                      {tabSwitching?.peakHour != null ? `${tabSwitching.peakHour}:00` : '—'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 rounded-2xl bg-[#121218] border border-[#20202c]">
+                <h3 className="text-base font-bold text-white font-['Outfit'] mb-4">Switches Per Hour</h3>
+                {tabSwitching?.switchesPerHour && tabSwitching.switchesPerHour.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={tabSwitching.switchesPerHour}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#242436" />
+                      <XAxis dataKey="hour" stroke="#71717a" fontSize={11} />
+                      <YAxis stroke="#71717a" fontSize={11} />
+                      <Tooltip
+                        contentStyle={{ background: '#18181f', border: '1px solid #272732', borderRadius: 8, fontSize: 12 }}
+                        labelStyle={{ color: '#e4e4e7' }}
+                      />
+                      <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="#f59e0b" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-40 flex items-center justify-center text-xs text-zinc-500">
+                    No tab-switching telemetry available yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* INSTANCES TAB */}
+          {activeTab === 'INSTANCES' && (
+            <div className="p-6 rounded-2xl bg-[#121218] border border-[#20202c]">
+              <div className="flex items-center gap-2 mb-4">
+                <Monitor className="w-4 h-4 text-indigo-400" />
+                <h3 className="text-base font-bold text-white font-['Outfit']">Browser / Device Instances</h3>
+              </div>
+              <div className="space-y-2">
+                {instances.map((inst) => (
+                  <div
+                    key={inst.id}
+                    className="p-3.5 rounded-xl bg-[#161622] border border-[#222232] flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <span className="text-sm font-semibold text-white truncate">{inst.label || inst.id}</span>
+                      <p className="text-[11px] text-zinc-400">
+                        {inst.lastSyncAt ? `Last synced: ${new Date(inst.lastSyncAt).toLocaleString()}` : 'No sync activity yet'}
+                      </p>
+                    </div>
+                    <span className="text-xs font-bold font-mono text-white shrink-0">
+                      {inst.eventCount != null ? `${inst.eventCount} events` : '—'}
+                    </span>
+                  </div>
+                ))}
+                {instances.length === 0 && (
+                  <div className="p-8 text-center text-xs text-zinc-500 border border-dashed border-[#242436] rounded-xl">
+                    No distinct browser instances detected yet. Install the extension on more than one browser to see a breakdown here.
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -353,6 +472,72 @@ export const BrowserIntelligencePage: React.FC = () => {
             </div>
           )}
         </>
+      )}
+
+      {/* Session Detail Drawer */}
+      {selectedDomain && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm" onClick={() => setSelectedDomain(null)}>
+          <div
+            className="w-full max-w-sm h-full bg-[#121218] border-l border-[#242436] p-6 overflow-y-auto animate-fadeIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-bold text-white font-['Outfit']">Session Detail</h3>
+              <button
+                onClick={() => setSelectedDomain(null)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#1c1c28] transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-amber-400" />
+                <span className="text-sm font-semibold text-white">{selectedDomain.domain}</span>
+              </div>
+
+              {selectedDomain.category && (
+                <div className="flex items-center gap-2 text-zinc-400">
+                  <Tag className="w-3.5 h-3.5" />
+                  <span>Category: <span className="text-white">{selectedDomain.category}</span></span>
+                </div>
+              )}
+
+              <div className="p-3.5 rounded-xl bg-[#161622] border border-[#222232] grid grid-cols-2 gap-3">
+                <div>
+                  <span className="text-[10px] text-zinc-500 uppercase block">Total Time</span>
+                  <span className="font-bold text-white font-mono">{selectedDomain.totalMinutes}m</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-zinc-500 uppercase block">Sessions</span>
+                  <span className="font-bold text-white font-mono">{selectedDomain.sessionCount}</span>
+                </div>
+              </div>
+
+              {selectedDomain.isDistraction && (
+                <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[11px] font-semibold">
+                  Flagged as a distraction domain
+                </div>
+              )}
+
+              <p className="text-[11px] text-zinc-500 leading-relaxed pt-2 border-t border-[#1c1c28]">
+                Per-domain aggregate shown here (start/end/browser-instance/device breakdown appears once the backend's
+                per-session detail endpoint is available for this domain — this drawer already renders whatever fields
+                the API returns, so it will populate automatically as those fields land).
+              </p>
+
+              {Object.entries(selectedDomain)
+                .filter(([k]) => !['domain', 'category', 'totalMinutes', 'sessionCount', 'isDistraction'].includes(k))
+                .map(([k, v]) => (
+                  <div key={k} className="flex items-center justify-between text-[11px] text-zinc-400 border-t border-[#1c1c28] pt-2">
+                    <span className="uppercase tracking-wide">{k}</span>
+                    <span className="text-white font-mono">{String(v)}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

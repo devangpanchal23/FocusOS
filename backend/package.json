@@ -18,7 +18,9 @@
     "test:v2": "tsx test/v2.test.ts",
     "test:v3": "tsx test/v3.test.ts",
     "test:v4": "tsx test/v4.test.ts",
-    "test:system": "tsx test/full_system.test.ts"
+    "test:system": "tsx test/full_system.test.ts",
+    "test:v5": "tsx test/v5.test.ts",
+    "test:v5:security": "tsx test/v5_security.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

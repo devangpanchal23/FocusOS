@@ -6,11 +6,14 @@ export class BrowserIntelligenceController {
   static async ingestSessions(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.userId!;
-      const { deviceId, sessions } = req.body;
+      const { deviceId, sessions, instanceKey, browserLabel } = req.body;
       if (!Array.isArray(sessions)) {
         return res.status(400).json({ error: 'sessions must be an array.' });
       }
-      const result = await BrowserIntelligenceService.ingestSessions(userId, deviceId || null, sessions);
+      const result = await BrowserIntelligenceService.ingestSessions(userId, deviceId || null, sessions, {
+        instanceKey: instanceKey || null,
+        browserLabel: browserLabel || null,
+      });
       return res.status(201).json(result);
     } catch (error: any) {
       console.error('BrowserIntelligence ingestSessions error:', error);
@@ -95,6 +98,30 @@ export class BrowserIntelligenceController {
       return res.status(201).json({ rule });
     } catch (error) {
       return res.status(500).json({ error: 'Failed to create category rule.' });
+    }
+  }
+
+  static async getTabSwitching(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { from, to } = req.query;
+      const metrics = await BrowserIntelligenceService.getTabSwitchingMetrics(req.userId!, {
+        from: from as string | undefined,
+        to: to as string | undefined,
+      });
+      return res.json(metrics);
+    } catch (error) {
+      console.error('BrowserIntelligence getTabSwitching error:', error);
+      return res.status(500).json({ error: 'Failed to fetch tab switching metrics.' });
+    }
+  }
+
+  static async getBrowserInstances(req: AuthenticatedRequest, res: Response) {
+    try {
+      const instances = await BrowserIntelligenceService.getBrowserInstances(req.userId!);
+      return res.json({ instances });
+    } catch (error) {
+      console.error('BrowserIntelligence getBrowserInstances error:', error);
+      return res.status(500).json({ error: 'Failed to fetch browser instances.' });
     }
   }
 }

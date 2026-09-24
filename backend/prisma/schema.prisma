@@ -75,6 +75,13 @@ model User {
   timeIntelligenceBaselines TimeIntelligenceBaseline[]
   timeIntelligenceAnomalies TimeIntelligenceAnomaly[]
   mobileLinkTokens          MobileLinkToken[]
+
+  // Version 5.1 additions
+  automationDeliveryLogs    AutomationDeliveryLog[]
+  desktopAgentSettings      DesktopAgentSettings?
+  mobileDevicePermissions   MobileDevicePermission[]
+  shortFormSessions         ShortFormSession[]
+  timeIntelligencePreferences TimeIntelligencePreferences?
 }
 
 model Profile {
@@ -107,6 +114,7 @@ model Device {
   dataSources    DataSource[]
   rawEvents      RawEvent[]
   unifiedEvents  UnifiedEvent[]
+  shortFormSessions ShortFormSession[]
 }
 
 model Screenshot {
@@ -305,8 +313,13 @@ model AutomationRule {
   updatedAt         DateTime        @updatedAt
 
   // Version 5: multi-condition automation
-  conditionLogic    String          @default("SINGLE") // SINGLE (legacy behavior), ALL (AND-chain via AutomationCondition)
+  conditionLogic    String          @default("SINGLE") // SINGLE (legacy), ALL (AND-chain), GROUPED (nested AND/OR tree via AutomationConditionGroup)
   conditions        AutomationCondition[]
+  conditionGroups   AutomationConditionGroup[]
+
+  // Version 5.1: cooldown + delivery
+  cooldownMinutes   Int             @default(0)
+  deliveryLogs      AutomationDeliveryLog[]
 
   logs              AutomationLog[]
 }
@@ -322,7 +335,47 @@ model AutomationCondition {
   timeWindowStart   String?        // "20:00" — optional time-window gate
   timeWindowEnd     String?        // "23:00"
   orderIndex        Int            @default(0)
+  groupId           String?        // Version 5.1: optional membership in a nested AutomationConditionGroup
+  group             AutomationConditionGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
   createdAt         DateTime       @default(now())
+}
+
+model AutomationConditionGroup {
+  id             String                     @id @default(uuid())
+  ruleId         String
+  rule           AutomationRule             @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  logic          String                     // AND, OR
+  parentGroupId  String?
+  parentGroup    AutomationConditionGroup?  @relation("GroupNesting", fields: [parentGroupId], references: [id], onDelete: Cascade)
+  childGroups    AutomationConditionGroup[] @relation("GroupNesting")
+  orderIndex     Int                        @default(0)
+  createdAt      DateTime                   @default(now())
+
+  conditions     AutomationCondition[]
+}
+
+model AutomationRuleTemplate {
+  id                   String   @id @default(uuid())
+  key                  String   @unique // HIGH_SCREEN_TIME, LONG_SHORT_FORM_SESSION, UNUSUAL_APP_USAGE, FOCUS_REMINDER, DEADLINE_REMINDER, DATA_SYNC_FAILURE
+  name                 String
+  description          String
+  category             String
+  defaultConditionsJson String  // JSON array of condition definitions
+  defaultActionJson    String   // JSON: { actionType, actionTarget }
+  icon                 String   @default("Zap")
+  createdAt            DateTime @default(now())
+}
+
+model AutomationDeliveryLog {
+  id        String         @id @default(uuid())
+  ruleId    String
+  rule      AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   String         // IN_APP, WEBHOOK, EMAIL, BROWSER
+  status    String         // SENT, FAILED, PENDING, NOT_CONFIGURED
+  detail    String?
+  createdAt DateTime       @default(now())
 }
 
 model AutomationLog {
@@ -900,12 +953,15 @@ model DataSource {
   lastSeenAt     DateTime?
   lastSyncAt     DateTime?
   syncToken      String?   @unique
+  instanceKey    String?   // stable per-install identifier (e.g. a browser install's random UUID), for multi-instance disambiguation
+  label          String?   // human-readable label, e.g. "Brave on MacBook"
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   rawEvents      RawEvent[]
 
   @@index([userId, sourceType])
+  @@unique([userId, sourceType, instanceKey])
 }
 
 model RawEvent {
@@ -920,8 +976,10 @@ model RawEvent {
   payloadJson      String        // raw untransformed payload as received
   occurredAt       DateTime      // when the activity actually happened (client clock)
   receivedAt       DateTime      @default(now()) // when backend ingested it
-  processingStatus String        @default("PENDING") // PENDING, PROCESSED, FAILED, DUPLICATE
+  processingStatus String        @default("PENDING") // PENDING, PROCESSING, PROCESSED, RETRYING, FAILED, PERMANENTLY_FAILED, DUPLICATE
   retryCount       Int           @default(0)
+  maxRetries       Int           @default(5)
+  nextRetryAt      DateTime?
   errorMessage     String?
   createdAt        DateTime      @default(now())
 
@@ -1030,6 +1088,67 @@ model MobileLinkToken {
   expiresAt  DateTime
   consumedAt DateTime?
   createdAt  DateTime  @default(now())
+}
+
+// ==========================================
+// VERSION 5.1 MODELS — COMPLETION PASS
+// ==========================================
+
+model DesktopAgentSettings {
+  id                    String   @id @default(uuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collectWindowTitles   Boolean  @default(true)
+  collectAppNames       Boolean  @default(true)
+  excludedApplications  String   @default("[]") // JSON array of app names
+  excludedWindowPatterns String  @default("[]") // JSON array of title substrings/patterns
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model MobileDevicePermission {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dataSourceId  String
+  permission    String   // USAGE_ACCESS, NOTIFICATION_ACCESS, SCREEN_TIME_API
+  status        String   @default("NOT_REQUESTED") // GRANTED, DENIED, NOT_REQUESTED, UNKNOWN
+  lastCheckedAt DateTime?
+  source        String   @default("USER_REPORTED") // USER_REPORTED, DEVICE_REPORTED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, dataSourceId, permission])
+}
+
+model ShortFormSession {
+  id                     String    @id @default(uuid())
+  userId                 String
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId               String?
+  device                 Device?   @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  platform               String    // INSTAGRAM, YOUTUBE, SNAPCHAT, FACEBOOK, OTHER
+  startedAt              DateTime
+  endedAt                DateTime?
+  durationSeconds        Int       @default(0)
+  itemCount              Int?
+  avgItemDurationSeconds Float?
+  dataQuality            String    // SESSION_LEVEL (real browser timestamps), ESTIMATED (daily aggregate, no real time-of-day)
+  sourceUnifiedEventId   String?
+  date                   String    // YYYY-MM-DD, for fast day/week/month aggregation
+  createdAt              DateTime  @default(now())
+
+  @@index([userId, platform, date])
+  @@index([userId, dataQuality, date])
+}
+
+model TimeIntelligencePreferences {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  periodsJson String  @default("[{\"key\":\"MORNING\",\"label\":\"Morning\",\"start\":\"05:00\",\"end\":\"12:00\"},{\"key\":\"AFTERNOON\",\"label\":\"Afternoon\",\"start\":\"12:00\",\"end\":\"17:00\"},{\"key\":\"EVENING\",\"label\":\"Evening\",\"start\":\"17:00\",\"end\":\"22:00\"},{\"key\":\"LATE_NIGHT\",\"label\":\"Late Night\",\"start\":\"22:00\",\"end\":\"05:00\"}]")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 

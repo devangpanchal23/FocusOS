@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Cpu, Plus, Trash2, Play, CheckCircle, AlertTriangle, ShieldCheck, History, XCircle, FlaskConical, Sliders, X } from 'lucide-react';
+import { Cpu, Plus, Trash2, Play, CheckCircle, AlertTriangle, ShieldCheck, History, XCircle, FlaskConical, Sliders, X, LayoutTemplate, Webhook, Bell, Mail, Globe2, Timer } from 'lucide-react';
 import { api } from '../services/api';
-import { automationV5Api } from '../services/v5.service';
+import { automationV5Api, v5Api, AutomationTemplate } from '../services/v5.service';
 import { AutomationRule, AutomationLog, AutomationCondition, AutomationTestResult } from '../types';
+import {
+  ConditionGroupBuilder,
+  ConditionGroupNode,
+  emptyGroup,
+  flattenConditionTree,
+} from '../components/v5/ConditionGroupBuilder';
 
 const ADVANCED_TRIGGER_TYPES = ['SCREEN_TIME_LIMIT', 'REELS_LIMIT', 'REEL_COUNT_LIMIT', 'FOCUS_START'];
 const ADVANCED_OPERATORS = ['GREATER_THAN', 'LESS_THAN', 'EQUALS'];
+
+const DELIVERY_CHANNELS: { key: string; label: string; icon: any; configured: boolean }[] = [
+  { key: 'IN_APP', label: 'In-App', icon: Bell, configured: true },
+  { key: 'WEBHOOK', label: 'Webhook', icon: Webhook, configured: true },
+  { key: 'EMAIL', label: 'Email', icon: Mail, configured: false },
+  { key: 'BROWSER', label: 'Browser Push', icon: Globe2, configured: false },
+];
 
 function emptyCondition(): AutomationCondition {
   return {
@@ -44,6 +57,19 @@ export const AutomationPage: React.FC = () => {
   const [testingRuleId, setTestingRuleId] = useState<string | null>(null);
   const [ruleTestResults, setRuleTestResults] = useState<Record<string, AutomationTestResult>>({});
 
+  // V5.1: nested AND/OR condition groups
+  const [useGroupedMode, setUseGroupedMode] = useState(false);
+  const [groupTree, setGroupTree] = useState<ConditionGroupNode>(emptyGroup('AND'));
+
+  // V5.1: cooldown + delivery channels
+  const [cooldownMinutes, setCooldownMinutes] = useState('0');
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(['IN_APP']);
+
+  // V5.1: rule templates
+  const [templates, setTemplates] = useState<AutomationTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [instantiatingKey, setInstantiatingKey] = useState<string | null>(null);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -60,9 +86,40 @@ export const AutomationPage: React.FC = () => {
     }
   };
 
+  const loadTemplates = async () => {
+    setTemplatesLoading(true);
+    try {
+      const res = await v5Api.automation.getTemplates();
+      setTemplates(Array.isArray(res) ? res : []);
+    } catch (err) {
+      // non-fatal — template gallery just stays empty
+      setTemplates([]);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
+    loadTemplates();
   }, []);
+
+  const handleUseTemplate = async (key: string) => {
+    setInstantiatingKey(key);
+    try {
+      await v5Api.automation.instantiateTemplate(key);
+      await loadData();
+    } catch (err: any) {
+      alert(`Failed to instantiate template: ${err.message}`);
+    } finally {
+      setInstantiatingKey(null);
+    }
+  };
+
+  const toggleChannel = (key: string, configured: boolean) => {
+    if (!configured) return;
+    setSelectedChannels((prev) => (prev.includes(key) ? prev.filter((c) => c !== key) : [...prev, key]));
+  };
 
   const handleCreateRule = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,7 +135,21 @@ export const AutomationPage: React.FC = () => {
           thresholdValue,
           actionType,
           actionTarget,
-        });
+          cooldownMinutes: Number(cooldownMinutes) || 0,
+          deliveryChannels: selectedChannels,
+        } as any);
+      } else if (useGroupedMode) {
+        const { groups, conditions: flatConditions } = flattenConditionTree(groupTree);
+        await api.createAutomationRule({
+          name: name.trim(),
+          actionType,
+          actionTarget,
+          conditionLogic: 'GROUPED',
+          conditionGroups: groups,
+          conditions: flatConditions,
+          cooldownMinutes: Number(cooldownMinutes) || 0,
+          deliveryChannels: selectedChannels,
+        } as any);
       } else {
         const validConditions = conditions.filter((c) => c.triggerType && c.thresholdValue);
         if (validConditions.length === 0) return;
@@ -93,7 +164,9 @@ export const AutomationPage: React.FC = () => {
           actionTarget,
           conditionLogic: 'ALL',
           conditions: validConditions.map((c, idx) => ({ ...c, orderIndex: idx })),
-        });
+          cooldownMinutes: Number(cooldownMinutes) || 0,
+          deliveryChannels: selectedChannels,
+        } as any);
       }
       resetForm();
       setShowAddModal(false);
@@ -113,6 +186,10 @@ export const AutomationPage: React.FC = () => {
     setConditions([emptyCondition()]);
     setTestResult(null);
     setTestError(null);
+    setUseGroupedMode(false);
+    setGroupTree(emptyGroup('AND'));
+    setCooldownMinutes('0');
+    setSelectedChannels(['IN_APP']);
   };
 
   const updateCondition = (idx: number, patch: Partial<AutomationCondition>) => {
@@ -242,6 +319,42 @@ export const AutomationPage: React.FC = () => {
         </div>
       )}
 
+      {/* V5.1: Template Gallery */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <LayoutTemplate className="w-4 h-4 text-cyan-400" /> Rule Templates
+          </h3>
+          <span className="text-xs text-slate-500">One-click starting points for common policies</span>
+        </div>
+        {templatesLoading ? (
+          <div className="text-center py-6 text-slate-500 text-xs">Loading templates...</div>
+        ) : templates.length === 0 ? (
+          <div className="text-center py-6 text-slate-500 text-xs">No rule templates available yet.</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {templates.map((tpl) => (
+              <div key={tpl.key} className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold text-white">{tpl.name}</p>
+                  {tpl.category && (
+                    <span className="text-[9px] uppercase font-bold text-cyan-400">{tpl.category}</span>
+                  )}
+                  {tpl.description && <p className="text-[11px] text-slate-400 mt-1">{tpl.description}</p>}
+                </div>
+                <button
+                  onClick={() => handleUseTemplate(tpl.key)}
+                  disabled={instantiatingKey === tpl.key}
+                  className="w-full py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold transition disabled:opacity-50"
+                >
+                  {instantiatingKey === tpl.key ? 'Adding...' : 'Use This Template'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Rules Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {rules.length === 0 ? (
@@ -324,6 +437,35 @@ export const AutomationPage: React.FC = () => {
                     Last triggered: {new Date(rule.lastTriggeredAt).toLocaleString()}
                   </div>
                 )}
+
+                {(rule as any).cooldownMinutes > 0 && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1.5">
+                    <Timer className="w-3 h-3" /> Cooldown: {(rule as any).cooldownMinutes}m
+                  </div>
+                )}
+
+                <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
+                  {DELIVERY_CHANNELS.map((ch) => {
+                    const active = ((rule as any).deliveryChannels || ['IN_APP']).includes(ch.key);
+                    if (!active) return null;
+                    const Icon = ch.icon;
+                    return (
+                      <span
+                        key={ch.key}
+                        title={ch.configured ? `${ch.label} — configured` : `${ch.label} — not configured`}
+                        className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold border flex items-center gap-1 ${
+                          ch.configured
+                            ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                            : 'bg-slate-800 text-slate-500 border-slate-700'
+                        }`}
+                      >
+                        <Icon className="w-2.5 h-2.5" />
+                        {ch.label}
+                        {!ch.configured && ' · Not configured'}
+                      </span>
+                    );
+                  })}
+                </div>
 
                 {ruleTestResults[rule.id] && (
                   <div className="mt-3 p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80 space-y-1.5">
@@ -502,8 +644,21 @@ export const AutomationPage: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-semibold text-slate-300">
-                      Conditions (all must pass — AND chain)
+                      {useGroupedMode ? 'Nested AND/OR Condition Groups' : 'Conditions (all must pass — AND chain)'}
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => setUseGroupedMode((v) => !v)}
+                      className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300"
+                    >
+                      {useGroupedMode ? 'Switch to flat AND chain' : 'Switch to nested groups'}
+                    </button>
+                  </div>
+
+                  {useGroupedMode && <ConditionGroupBuilder tree={groupTree} onChange={setGroupTree} />}
+
+                  {!useGroupedMode && (
+                  <div className="flex items-center justify-end">
                     <button
                       type="button"
                       onClick={addConditionRow}
@@ -512,8 +667,9 @@ export const AutomationPage: React.FC = () => {
                       <Plus className="w-3 h-3" /> Add Condition
                     </button>
                   </div>
+                  )}
 
-                  {conditions.map((cond, idx) => (
+                  {!useGroupedMode && conditions.map((cond, idx) => (
                     <div key={idx} className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
                       {idx > 0 && (
                         <div className="text-[10px] font-bold text-indigo-400 uppercase">AND</div>
@@ -611,6 +767,51 @@ export const AutomationPage: React.FC = () => {
                   onChange={(e) => setActionTarget(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
                 />
+              </div>
+
+              {/* V5.1: cooldown */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+                  <Timer className="w-3.5 h-3.5 text-cyan-400" /> Cooldown (minutes between live triggers)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={cooldownMinutes}
+                  onChange={(e) => setCooldownMinutes(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              {/* V5.1: delivery channels */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Delivery Channels</label>
+                <div className="flex flex-wrap gap-2">
+                  {DELIVERY_CHANNELS.map((ch) => {
+                    const Icon = ch.icon;
+                    const active = selectedChannels.includes(ch.key);
+                    return (
+                      <button
+                        type="button"
+                        key={ch.key}
+                        onClick={() => toggleChannel(ch.key, ch.configured)}
+                        disabled={!ch.configured}
+                        title={ch.configured ? ch.label : `${ch.label} — not configured`}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition ${
+                          !ch.configured
+                            ? 'bg-slate-950/40 text-slate-600 border-slate-800 cursor-not-allowed'
+                            : active
+                            ? 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {ch.label}
+                        {!ch.configured && ' (Not configured)'}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Test Rule (dry-run, no save, no action execution) */}

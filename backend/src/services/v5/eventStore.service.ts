@@ -113,7 +113,7 @@ export class EventStoreService {
           await this.transformRawEvent(userId, rawEvent.id, deviceId ?? null, dataSource.sourceType, event);
           await prisma.rawEvent.update({
             where: { id: rawEvent.id },
-            data: { processingStatus: 'PROCESSED' },
+            data: { processingStatus: 'PROCESSED', errorMessage: null },
           });
           result.ingested++;
         } catch (transformErr: any) {
@@ -185,6 +185,71 @@ export class EventStoreService {
         metadataJson: JSON.stringify(event.metadata ?? {}),
       },
     });
+  }
+
+  /**
+   * Re-attempts transformation of a previously FAILED/RETRYING RawEvent.
+   * Used by the ingestion retry worker (see src/jobs/ingestionRetryWorker.ts).
+   * Never throws — always resolves to a {success, error?} result.
+   */
+  static async reprocessRawEvent(rawEventId: string): Promise<{ success: boolean; error?: string }> {
+    const rawEvent = await prisma.rawEvent.findUnique({
+      where: { id: rawEventId },
+      include: { dataSource: true, unifiedEvent: true },
+    });
+
+    if (!rawEvent) {
+      return { success: false, error: 'RawEvent not found' };
+    }
+
+    // Already processed (e.g. a prior retry succeeded but the status update
+    // failed) — just reconcile status and skip re-creating the UnifiedEvent.
+    if (rawEvent.unifiedEvent) {
+      await prisma.rawEvent.update({
+        where: { id: rawEvent.id },
+        data: { processingStatus: 'PROCESSED', errorMessage: null },
+      });
+      return { success: true };
+    }
+
+    await prisma.rawEvent.update({
+      where: { id: rawEvent.id },
+      data: { processingStatus: 'PROCESSING' },
+    });
+
+    try {
+      const event: IncomingEvent = JSON.parse(rawEvent.payloadJson);
+      await this.transformRawEvent(
+        rawEvent.userId,
+        rawEvent.id,
+        rawEvent.deviceId ?? null,
+        rawEvent.dataSource.sourceType,
+        event
+      );
+      await prisma.rawEvent.update({
+        where: { id: rawEvent.id },
+        data: { processingStatus: 'PROCESSED', errorMessage: null },
+      });
+      return { success: true };
+    } catch (err: any) {
+      const errorMessage = String(err?.message || err).slice(0, 1000);
+      const retryCount = rawEvent.retryCount + 1;
+      const backoffMs = Math.min(2 ** retryCount * 30_000, 30 * 60_000);
+      const nextRetryAt = new Date(Date.now() + backoffMs);
+      const processingStatus = retryCount >= rawEvent.maxRetries ? 'PERMANENTLY_FAILED' : 'RETRYING';
+
+      await prisma.rawEvent.update({
+        where: { id: rawEvent.id },
+        data: {
+          processingStatus,
+          retryCount,
+          nextRetryAt,
+          errorMessage,
+        },
+      });
+
+      return { success: false, error: errorMessage };
+    }
   }
 
   /**

@@ -8,6 +8,25 @@ export interface TimelineQuery {
   sourceTypes?: string[];
   cursor?: string; // `${startedAtISO}_${id}`
   limit?: number;
+  search?: string;
+}
+
+/**
+ * Builds a Prisma OR filter matching `search` (case-insensitive, via SQLite's
+ * LIKE-based `contains` — this codebase does not use Prisma's
+ * `mode: 'insensitive'` since it is Postgres/MongoDB-only and unsupported on
+ * SQLite; SQLite's LIKE is already ASCII case-insensitive by default) across
+ * application name, domain, title, category name, device name and sourceType.
+ */
+function buildSearchFilter(search: string) {
+  return [
+    { application: { canonicalName: { contains: search } } },
+    { domain: { contains: search } },
+    { title: { contains: search } },
+    { category: { name: { contains: search } } },
+    { device: { name: { contains: search } } },
+    { sourceType: { contains: search } },
+  ];
 }
 
 function decodeCursor(cursor?: string): { startedAt: Date; id: string } | null {
@@ -41,12 +60,28 @@ export class TimelineService {
     if (query.categoryIds && query.categoryIds.length > 0) where.categoryId = { in: query.categoryIds };
     if (query.sourceTypes && query.sourceTypes.length > 0) where.sourceType = { in: query.sourceTypes };
 
+    // Both cursor pagination and search need their own top-level OR clause;
+    // Prisma only allows one `OR` key per where object, so once both are
+    // present they're combined via `AND` of two OR-groups instead of letting
+    // the second overwrite the first.
+    const andConditions: any[] = [];
+
     const decoded = decodeCursor(query.cursor);
     if (decoded) {
-      where.OR = [
-        { startedAt: { lt: decoded.startedAt } },
-        { startedAt: decoded.startedAt, id: { lt: decoded.id } },
-      ];
+      andConditions.push({
+        OR: [
+          { startedAt: { lt: decoded.startedAt } },
+          { startedAt: decoded.startedAt, id: { lt: decoded.id } },
+        ],
+      });
+    }
+
+    if (query.search && query.search.trim()) {
+      andConditions.push({ OR: buildSearchFilter(query.search.trim()) });
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
     }
 
     const events = await prisma.unifiedEvent.findMany({
@@ -67,6 +102,7 @@ export class TimelineService {
         ...(query.deviceIds && query.deviceIds.length > 0 ? { deviceId: { in: query.deviceIds } } : {}),
         ...(query.categoryIds && query.categoryIds.length > 0 ? { categoryId: { in: query.categoryIds } } : {}),
         ...(query.sourceTypes && query.sourceTypes.length > 0 ? { sourceType: { in: query.sourceTypes } } : {}),
+        ...(query.search && query.search.trim() ? { OR: buildSearchFilter(query.search.trim()) } : {}),
       },
       _sum: { durationSeconds: true },
     });

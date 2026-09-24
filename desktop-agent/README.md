@@ -43,6 +43,70 @@ applications:
 If permissions are missing, the agent does not crash - `active-win` simply
 returns less detail (e.g. an empty title), which is passed through as-is.
 
+## Sleep/wake and lock/unlock - inferred, not real OS events
+
+`src/powerEvents.ts` adds four more event types to the local queue and sync
+payload: `SLEEP`, `WAKE`, `LOCK`, `UNLOCK`. **None of these come from a real
+OS power/lock hook** - Node has no risk-free, cross-platform way to get one
+without adding native bindings per platform (macOS `IOKit`, Windows
+`WM_POWERBROADCAST`, Linux `systemd-logind` DBus), so this agent doesn't. All
+four are inferred from behavior the agent already observes, and every one of
+them is tagged `detectionMethod: 'INFERRED'` all the way through - local
+queue row, sync payload, and (per the backend's schema) the resulting
+`UnifiedEvent.metadataJson`.
+
+- **SLEEP/WAKE**: the tracker polls the active window every
+  `pollIntervalMs` (default 5s). While the machine is asleep, `setInterval`
+  doesn't fire, so the next successful poll after waking lands much later
+  than expected. If the gap between two consecutive successful polls is
+  more than 2x the configured poll interval, we emit a `SLEEP` event dated
+  at the last successful poll (with `durationSeconds` = the gap length) and
+  a `WAKE` event dated at the new poll (`durationSeconds: 0`). This can
+  also false-positive on anything else that stalls the process for a while
+  (thermal throttling, a blocked event loop) - it's "the agent stopped
+  being scheduled," not a verified sleep/wake syscall.
+- **LOCK/UNLOCK**: reuses the idle-signature tracking already described
+  below. If the active app/window signature stays unchanged for 2x the
+  normal idle threshold (default 120s, so 240s), we infer the screen was
+  locked and emit `LOCK`; when the signature changes again, we emit
+  `UNLOCK`. This is a proxy, not real lock-state detection - a user who
+  steps away without locking will eventually be flagged "locked" too, and
+  the inferred `LOCK` timestamp is necessarily later than a real lock event
+  would be (it can only fire once the threshold has been crossed).
+
+These thresholds are defined in `src/powerEvents.ts` (`SleepWakeTracker`,
+`LockProxyTracker`) if you want to tune them.
+
+## Privacy settings - client-side best-effort, server-side authoritative
+
+`src/settings.ts` fetches `GET {apiBase}/v5/desktop/settings` on startup and
+every 5 minutes, caching `collectWindowTitles`, `collectAppNames`,
+`excludedApplications`, and `excludedWindowPatterns` in memory.
+`tracker.ts` consults this cache before enqueueing each session row:
+
+- If the active app matches `excludedApplications`, or the window title
+  contains any `excludedWindowPatterns` substring, the row is dropped
+  entirely (never written to the local queue).
+- If `collectWindowTitles` is `false`, the window title is omitted.
+- If `collectAppNames` is `false`, the app name is replaced with `"Unknown"`.
+
+**This is bandwidth-saving/defense-in-depth only - it is not the source of
+truth.** The backend enforces these same settings server-side (redacting or
+dropping data at sync time, per `desktopAgent.service.ts`), independent of
+what this agent does locally. If the settings endpoint is unreachable,
+returns an error, or doesn't exist yet, the agent logs a note once and
+**fails open** - it keeps tracking normally with permissive defaults rather
+than crashing or silently going dark.
+
+One known gap worth flagging explicitly: this agent is an unattended
+background process and only ever holds a per-device `syncToken` (see
+"Pair with your FocusOS account" below), never a user JWT. The settings
+fetch reuses that same `X-Sync-Token` header. If the backend's settings
+route turns out to require a JWT instead, this fetch will simply get a 401
+and fall back to defaults per the fail-open behavior above - client-side
+filtering would then effectively be a no-op until that's reconciled, but
+server-side enforcement is unaffected either way.
+
 ## Idle detection - an honest limitation
 
 There is no consistent, cross-platform "seconds since last input" API wired
@@ -112,7 +176,12 @@ All local state lives under `~/.focusos/`:
 
 - `~/.focusos/config.json` - `{ apiBase, deviceId, syncToken, pollIntervalMs, syncIntervalMs }`
 - `~/.focusos/queue.db` - SQLite queue of not-yet-synced (and briefly,
-  in-flight) events.
+  in-flight) events. Rows carry an `eventType` (`APP_SESSION` by default, or
+  `SLEEP`/`WAKE`/`LOCK`/`UNLOCK` for the inferred power events above) and an
+  optional `detectionMethod`. If you have a `queue.db` from before this
+  version, the agent detects the missing columns on startup and adds them
+  automatically (`ALTER TABLE`) - you don't need to delete it, and existing
+  queued rows are treated as `APP_SESSION`, which is what they always were.
 
 Edit `pollIntervalMs` / `syncIntervalMs` in `config.json` directly if you
 want different polling/sync cadences; defaults are 5s poll / 30s sync.

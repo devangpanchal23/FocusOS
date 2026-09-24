@@ -41,6 +41,14 @@ import { PlatformEnterprisePage } from './pages/v4/PlatformEnterprisePage';
 import { BrowserIntelligencePage } from './pages/v5/BrowserIntelligencePage';
 import { TimelinePage } from './pages/v5/TimelinePage';
 
+// Version 5.1 Completion Pass Pages
+import { ShortFormIntelligencePage } from './pages/v5/ShortFormIntelligencePage';
+import { AutomationHistoryPage } from './pages/v5/AutomationHistoryPage';
+import { MobilePage } from './pages/v5/MobilePage';
+import { DataSourcesPage } from './pages/v5/DataSourcesPage';
+import { SyncCenterPage } from './pages/v5/SyncCenterPage';
+import { DataManagementPage } from './pages/v5/DataManagementPage';
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token, isLoading } = useAuth();
 
@@ -198,6 +206,56 @@ export const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <TimelinePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Version 5.1 Completion Pass Routes */}
+          <Route
+            path="/short-form"
+            element={
+              <ProtectedRoute>
+                <ShortFormIntelligencePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/automation-history"
+            element={
+              <ProtectedRoute>
+                <AutomationHistoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mobile"
+            element={
+              <ProtectedRoute>
+                <MobilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/data-sources"
+            element={
+              <ProtectedRoute>
+                <DataSourcesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sync-center"
+            element={
+              <ProtectedRoute>
+                <SyncCenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/data-management"
+            element={
+              <ProtectedRoute>
+                <DataManagementPage />
               </ProtectedRoute>
             }
           />

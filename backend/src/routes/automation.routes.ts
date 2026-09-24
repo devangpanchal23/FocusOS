@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware.js';
 import { AutomationController } from '../controllers/automation.controller.js';
+import { automationExtraRouter } from './automationExtra.routes.js';
 
 export const automationRouter = Router();
 
@@ -14,3 +15,6 @@ automationRouter.get('/logs', AutomationController.getLogs);
 automationRouter.post('/evaluate', AutomationController.evaluateRules);
 automationRouter.post('/rules/:id/test', AutomationController.testRule);
 automationRouter.post('/rules/test-draft', AutomationController.testDraftRule);
+
+// Version 5.1 (§38) additions: rule templates, delivery logs, combined history.
+automationRouter.use('/', automationExtraRouter);

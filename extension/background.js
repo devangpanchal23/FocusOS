@@ -13,6 +13,8 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(FLUSH_ALARM_NAME, { periodInMinutes: 0.5 });
   // Start tracking the currently active tab right away.
   initCurrentTabSession();
+  // Multi-instance identity: generate once, persist forever.
+  ensureInstanceIdentity();
 });
 
 chrome.runtime.onStartup.addListener(() => {
@@ -70,6 +72,79 @@ const MAX_QUEUE_LENGTH = 500;
 const FLUSH_ALARM_NAME = 'focusos_flush';
 
 let isFlushingQueue = false;
+
+// ---------------------------------------------------------------------------
+// Multi-instance identity: a stable per-install UUID + detected browser name,
+// generated once and persisted, sent with every session flush so the backend
+// can distinguish/label separate browser installs for the same user.
+// ---------------------------------------------------------------------------
+
+const INSTANCE_KEY_STORAGE_KEY = 'focusos_instance_key';
+const BROWSER_LABEL_STORAGE_KEY = 'focusos_browser_label';
+
+async function detectBrowserLabel() {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.brave && typeof navigator.brave.isBrave === 'function') {
+      const isBrave = await navigator.brave.isBrave().catch(() => false);
+      if (isBrave) return 'Brave';
+    }
+  } catch {
+    // Ignore — fall through to other detection methods.
+  }
+
+  try {
+    const brands = navigator.userAgentData && navigator.userAgentData.brands;
+    if (Array.isArray(brands) && brands.length) {
+      const names = brands.map((b) => b.brand || '');
+      if (names.some((n) => n.includes('Brave'))) return 'Brave';
+      if (names.some((n) => n.includes('Microsoft Edge'))) return 'Microsoft Edge';
+      if (names.some((n) => n.includes('Opera'))) return 'Opera';
+      if (names.some((n) => n.includes('Google Chrome'))) return 'Google Chrome';
+      if (names.some((n) => n.includes('Chromium'))) return 'Chromium';
+    }
+  } catch {
+    // Ignore — fall through to UA sniffing.
+  }
+
+  try {
+    const ua = (navigator.userAgent || '').toLowerCase();
+    if (ua.includes('edg/')) return 'Microsoft Edge';
+    if (ua.includes('opr/') || ua.includes('opera')) return 'Opera';
+    if (ua.includes('chrome')) return 'Google Chrome';
+  } catch {
+    // Ignore — final fallback below.
+  }
+
+  return 'Chrome';
+}
+
+async function ensureInstanceIdentity() {
+  try {
+    const existing = await chrome.storage.local.get([INSTANCE_KEY_STORAGE_KEY, BROWSER_LABEL_STORAGE_KEY]);
+    const updates = {};
+
+    let instanceKey = existing[INSTANCE_KEY_STORAGE_KEY];
+    if (!instanceKey) {
+      instanceKey = crypto.randomUUID();
+      updates[INSTANCE_KEY_STORAGE_KEY] = instanceKey;
+    }
+
+    let browserLabel = existing[BROWSER_LABEL_STORAGE_KEY];
+    if (!browserLabel) {
+      browserLabel = await detectBrowserLabel();
+      updates[BROWSER_LABEL_STORAGE_KEY] = browserLabel;
+    }
+
+    if (Object.keys(updates).length) {
+      await chrome.storage.local.set(updates);
+    }
+
+    return { instanceKey, browserLabel };
+  } catch {
+    // Never let identity bookkeeping crash the service worker.
+    return { instanceKey: null, browserLabel: null };
+  }
+}
 
 function getDomainFromUrl(url) {
   if (!url) return null;
@@ -185,6 +260,7 @@ async function flushBrowserSessionQueue() {
 
     const sentCount = queue.length;
     const toSend = queue.slice(0, sentCount);
+    const { instanceKey, browserLabel } = await ensureInstanceIdentity();
 
     try {
       const res = await fetch(`${API_BASE}/v5/browser/sessions`, {
@@ -193,7 +269,12 @@ async function flushBrowserSessionQueue() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ deviceId: null, sessions: toSend })
+        body: JSON.stringify({
+          deviceId: null,
+          sessions: toSend,
+          instanceKey,
+          browserLabel
+        })
       });
 
       if (res.ok) {

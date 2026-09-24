@@ -30,6 +30,9 @@ import {
   Lock,
   Compass,
   History,
+  RotateCw,
+  Database,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext.js';
 
@@ -55,6 +58,12 @@ export const Sidebar: React.FC = () => {
   const v5Nav = [
     { label: 'Browser Intelligence', path: '/browser', icon: Compass, badge: 'V5' },
     { label: 'Unified Timeline', path: '/timeline', icon: History, badge: 'V5' },
+    { label: 'Short-Form Intelligence', path: '/short-form', icon: Flame, badge: 'V5.1' },
+    { label: 'Mobile Devices', path: '/mobile', icon: Smartphone, badge: 'V5.1' },
+    { label: 'Data Sources', path: '/data-sources', icon: Database, badge: 'V5.1' },
+    { label: 'Sync Center', path: '/sync-center', icon: RotateCw, badge: 'V5.1' },
+    { label: 'Automation History', path: '/automation-history', icon: Cpu, badge: 'V5.1' },
+    { label: 'Data Management', path: '/data-management', icon: Trash2, badge: 'V5.1' },
   ];
 
   const coreNav = [

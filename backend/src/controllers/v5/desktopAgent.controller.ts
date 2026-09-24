@@ -47,4 +47,30 @@ export class DesktopAgentController {
       return res.status(500).json({ error: 'Failed to fetch desktop agent status.' });
     }
   }
+
+  static async getSettings(req: AuthenticatedRequest, res: Response) {
+    try {
+      const settings = await DesktopAgentService.getSettings(req.userId!);
+      return res.json({ settings });
+    } catch (error) {
+      console.error('DesktopAgent getSettings error:', error);
+      return res.status(500).json({ error: 'Failed to fetch desktop agent settings.' });
+    }
+  }
+
+  static async updateSettings(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { collectWindowTitles, collectAppNames, excludedApplications, excludedWindowPatterns } = req.body;
+      const settings = await DesktopAgentService.updateSettings(req.userId!, {
+        collectWindowTitles,
+        collectAppNames,
+        excludedApplications,
+        excludedWindowPatterns,
+      });
+      return res.json({ settings });
+    } catch (error) {
+      console.error('DesktopAgent updateSettings error:', error);
+      return res.status(500).json({ error: 'Failed to update desktop agent settings.' });
+    }
+  }
 }

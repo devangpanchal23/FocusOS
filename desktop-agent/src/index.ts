@@ -3,6 +3,9 @@ import { loadConfig, isRegistered, getConfigPath } from "./config.js";
 import { Tracker } from "./tracker.js";
 import { SyncLoop } from "./sync.js";
 import { closeDb } from "./queue.js";
+import { refreshSettings } from "./settings.js";
+
+const SETTINGS_REFRESH_INTERVAL_MS = 5 * 60_000;
 
 function log(msg: string): void {
   console.log(`[focusos-agent] ${new Date().toISOString()} ${msg}`);
@@ -35,6 +38,14 @@ async function main(): Promise<void> {
   // Kick off an immediate sync attempt rather than waiting a full interval on startup.
   syncLoop.runOnce().catch((err) => log(`initial sync error: ${String(err)}`));
 
+  // Privacy settings: best-effort client-side cache, refreshed on startup
+  // and periodically. Server-side enforcement remains authoritative - see
+  // settings.ts for the full explanation and the auth-mismatch caveat.
+  refreshSettings(log).catch((err) => log(`initial settings fetch error: ${String(err)}`));
+  const settingsTimer = setInterval(() => {
+    refreshSettings(log).catch((err) => log(`settings refresh error: ${String(err)}`));
+  }, SETTINGS_REFRESH_INTERVAL_MS);
+
   let shuttingDown = false;
   const shutdown = (signal: string) => {
     if (shuttingDown) return;
@@ -42,6 +53,7 @@ async function main(): Promise<void> {
     log(`received ${signal}, shutting down gracefully...`);
     tracker.stop();
     syncLoop.stop();
+    clearInterval(settingsTimer);
     closeDb();
     process.exit(0);
   };

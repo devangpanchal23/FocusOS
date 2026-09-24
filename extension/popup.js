@@ -48,6 +48,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Browser Intelligence Upgrade: today's browser-time summary (additive).
   loadBrowserSummary();
+  // Multi-instance identity: show which browser this install is tracked as.
+  loadBrowserInstanceLabel();
 
   btnOpenApp.addEventListener('click', () => {
     chrome.tabs.create({ url: 'http://localhost:5173/focus' });
@@ -100,5 +102,70 @@ async function loadBrowserSummary() {
   } catch {
     // Backend unreachable or endpoint not yet available — hide the block, don't break the popup.
     section.style.display = 'none';
+  }
+}
+
+// Multi-instance identity: read (or lazily compute) the persisted browser
+// label so the user can see which install this browser is tracked as.
+const INSTANCE_KEY_STORAGE_KEY = 'focusos_instance_key';
+const BROWSER_LABEL_STORAGE_KEY = 'focusos_browser_label';
+
+async function detectBrowserLabelForPopup() {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.brave && typeof navigator.brave.isBrave === 'function') {
+      const isBrave = await navigator.brave.isBrave().catch(() => false);
+      if (isBrave) return 'Brave';
+    }
+  } catch {
+    // Ignore — fall through to other detection methods.
+  }
+
+  try {
+    const brands = navigator.userAgentData && navigator.userAgentData.brands;
+    if (Array.isArray(brands) && brands.length) {
+      const names = brands.map((b) => b.brand || '');
+      if (names.some((n) => n.includes('Brave'))) return 'Brave';
+      if (names.some((n) => n.includes('Microsoft Edge'))) return 'Microsoft Edge';
+      if (names.some((n) => n.includes('Opera'))) return 'Opera';
+      if (names.some((n) => n.includes('Google Chrome'))) return 'Google Chrome';
+      if (names.some((n) => n.includes('Chromium'))) return 'Chromium';
+    }
+  } catch {
+    // Ignore — fall through to UA sniffing.
+  }
+
+  try {
+    const ua = (navigator.userAgent || '').toLowerCase();
+    if (ua.includes('edg/')) return 'Microsoft Edge';
+    if (ua.includes('opr/') || ua.includes('opera')) return 'Opera';
+    if (ua.includes('chrome')) return 'Google Chrome';
+  } catch {
+    // Ignore — final fallback below.
+  }
+
+  return 'Chrome';
+}
+
+async function loadBrowserInstanceLabel() {
+  const labelEl = document.getElementById('browser-instance-label');
+  if (!labelEl) return;
+
+  try {
+    const stored = await new Promise((resolve) =>
+      chrome.storage.local.get([INSTANCE_KEY_STORAGE_KEY, BROWSER_LABEL_STORAGE_KEY], resolve)
+    );
+
+    let browserLabel = stored[BROWSER_LABEL_STORAGE_KEY];
+    if (!browserLabel) {
+      browserLabel = await detectBrowserLabelForPopup();
+      // Best-effort cache so the background worker and popup agree; harmless if it races.
+      chrome.storage.local.set({ [BROWSER_LABEL_STORAGE_KEY]: browserLabel }).catch?.(() => {});
+    }
+
+    labelEl.textContent = `Tracked as: ${browserLabel}`;
+    labelEl.style.display = '';
+  } catch {
+    // Never break the popup over a cosmetic label.
+    labelEl.style.display = 'none';
   }
 }

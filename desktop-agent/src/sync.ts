@@ -9,6 +9,12 @@ interface SyncEventPayload {
   windowTitle?: string;
   isIdle: boolean;
   durationSeconds: number;
+  // Only present for non-default event types (SLEEP/WAKE/LOCK/UNLOCK) and
+  // their detection method, so ordinary APP_SESSION payloads sent to the
+  // backend are byte-for-byte identical to what V5.0 already sends - no
+  // silent contract change for existing rows.
+  type?: string;
+  detectionMethod?: string;
 }
 
 interface SyncEvent {
@@ -23,14 +29,23 @@ interface SyncResponse {
 }
 
 function rowToEvent(row: QueueRow): SyncEvent {
+  const payload: SyncEventPayload = {
+    appName: row.appName,
+    windowTitle: row.windowTitle ?? undefined,
+    isIdle: row.isIdle === 1,
+    durationSeconds: row.durationSeconds,
+  };
+  // Backward compatible: only set when non-default, so existing APP_SESSION
+  // rows keep sending exactly the V5.0 payload shape.
+  if (row.eventType && row.eventType !== "APP_SESSION") {
+    payload.type = row.eventType;
+  }
+  if (row.detectionMethod) {
+    payload.detectionMethod = row.detectionMethod;
+  }
   return {
     occurredAt: row.occurredAt,
-    payload: {
-      appName: row.appName,
-      windowTitle: row.windowTitle ?? undefined,
-      isIdle: row.isIdle === 1,
-      durationSeconds: row.durationSeconds,
-    },
+    payload,
   };
 }
 

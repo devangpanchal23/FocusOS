@@ -6,5 +6,7 @@ uploads/*
 dev.db
 dev.db-journal
 dev.db.pre-v5-backup
+dev.db.pre-v5.1-backup
+perf-test.db
 *.log
 .DS_Store
