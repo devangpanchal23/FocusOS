@@ -3,24 +3,14 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2022", "DOM"],
+    "lib": ["ES2022"],
     "strict": true,
     "esModuleInterop": true,
     "allowJs": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": [
-    "backend/src/**/*",
-    "backend/prisma/**/*",
-    "backend/test/**/*"
-  ],
-  "exclude": [
-    "**/node_modules",
-    "**/dist",
-    "frontend",
-    "api"
-  ]
+  "include": ["index.ts"],
+  "exclude": ["node_modules"]
 }
