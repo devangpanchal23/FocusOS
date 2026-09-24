@@ -1,16 +1,13 @@
 import multer from 'multer';
+import os from 'os';
 import path from 'path';
-import fs from 'fs';
 
-const uploadDir = path.resolve(process.cwd(), process.env.UPLOAD_DIR || './uploads');
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
+// Files are staged in the OS temp directory (writable both locally and on
+// Vercel's /tmp) before storage.service.ts persists them to their final
+// destination (local ./uploads in dev, Vercel Blob in production).
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, uploadDir);
+    cb(null, os.tmpdir());
   },
   filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);

@@ -12,20 +12,32 @@ export interface TimelineQuery {
 }
 
 /**
- * Builds a Prisma OR filter matching `search` (case-insensitive, via SQLite's
- * LIKE-based `contains` — this codebase does not use Prisma's
- * `mode: 'insensitive'` since it is Postgres/MongoDB-only and unsupported on
- * SQLite; SQLite's LIKE is already ASCII case-insensitive by default) across
- * application name, domain, title, category name, device name and sourceType.
+ * `mode: 'insensitive'` is Postgres/MongoDB-only — SQLite's Prisma connector
+ * rejects it outright. This codebase is mid-migration from SQLite to
+ * Postgres (see backend/prisma/schema.prisma's datasource provider vs.
+ * whatever DATABASE_URL actually points at in a given environment until the
+ * migration fully lands everywhere), so this checks the real connection
+ * string rather than assuming the schema's declared provider is already
+ * live, keeping search working correctly on either database.
+ */
+const SUPPORTS_CASE_INSENSITIVE_MODE = !(process.env.DATABASE_URL || '').startsWith('file:');
+
+/**
+ * Builds a Prisma OR filter matching `search` (case-insensitive on Postgres
+ * via `mode: 'insensitive'`; SQLite's LIKE is already ASCII
+ * case-insensitive by default, so plain `contains` covers it there) across
+ * application name, domain, title, category name, device name and
+ * sourceType.
  */
 function buildSearchFilter(search: string) {
+  const insensitive = SUPPORTS_CASE_INSENSITIVE_MODE ? { mode: 'insensitive' as const } : {};
   return [
-    { application: { canonicalName: { contains: search } } },
-    { domain: { contains: search } },
-    { title: { contains: search } },
-    { category: { name: { contains: search } } },
-    { device: { name: { contains: search } } },
-    { sourceType: { contains: search } },
+    { application: { canonicalName: { contains: search, ...insensitive } } },
+    { domain: { contains: search, ...insensitive } },
+    { title: { contains: search, ...insensitive } },
+    { category: { name: { contains: search, ...insensitive } } },
+    { device: { name: { contains: search, ...insensitive } } },
+    { sourceType: { contains: search, ...insensitive } },
   ];
 }
 

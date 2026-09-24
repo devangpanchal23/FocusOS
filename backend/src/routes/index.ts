@@ -15,6 +15,7 @@ import { insightRouter } from './insight.routes.js';
 import { v3Router } from './v3/v3.routes.js';
 import { v4Router } from './v4/v4.routes.js';
 import { v5Router } from './v5/v5.routes.js';
+import { cronRouter } from './cron.routes.js';
 
 export const apiRouter = Router();
 
@@ -43,6 +44,10 @@ apiRouter.use('/v4', v4Router);
 
 // V5 Unified Event Architecture, Browser/Desktop Intelligence, Timeline, Automation+
 apiRouter.use('/v5', v5Router);
+
+// Vercel Cron entrypoints (production only — local dev uses the setInterval
+// worker in jobs/ingestionRetryWorker.ts instead)
+apiRouter.use('/cron', cronRouter);
 
 apiRouter.get('/health', (_req, res) => {
   res.json({

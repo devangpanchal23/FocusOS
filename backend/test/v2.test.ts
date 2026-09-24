@@ -1,6 +1,11 @@
 import assert from 'node:assert';
 
-const BASE_URL = 'http://localhost:5000/api';
+// Overridable because port 5000 is occupied by macOS AirPlay Receiver on
+// some machines (System Settings > General > AirDrop & Handoff to free it
+// permanently) — same accommodation as test/v5.test.ts and
+// test/v5_security.test.ts. Point this at whatever port the backend is
+// actually running on, e.g. TEST_BASE_URL=http://localhost:5050/api.
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:5000/api';
 
 async function runV2Tests() {
   console.log('🚀 Starting FocusOS Version 2 Test Suite...\n');

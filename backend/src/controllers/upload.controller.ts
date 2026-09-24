@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { prisma } from '../config/db.js';
 import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
 import { calculateFileHash, ocrAnalyzer } from '../services/ocr.service.js';
+import * as StorageService from '../services/storage.service.js';
 import { NormalizationService } from '../services/normalization.service.js';
 import { AnalyticsService } from '../services/analytics.service.js';
 import { parseDurationToMinutes } from '../utils/durationParser.js';
@@ -34,12 +35,24 @@ export class UploadController {
 
         const isDuplicate = !!existingScreenshot;
 
+        // Run OCR / Vision Extraction on the temp-staged file BEFORE moving it
+        // to permanent storage (persistFile deletes the temp copy on success).
+        const analysis = await ocrAnalyzer.analyze(file.path, file.originalname);
+
+        // Move the temp-staged file into permanent storage (local ./uploads
+        // in dev, Vercel Blob in production — see storage.service.ts).
+        const { filePath: storedFilePath } = await StorageService.persistFile(
+          file.path,
+          file.filename,
+          file.mimetype
+        );
+
         // Create Screenshot record
         const screenshot = await prisma.screenshot.create({
           data: {
             userId,
             deviceId: selectedDeviceId,
-            filePath: file.filename,
+            filePath: storedFilePath,
             fileHash,
             originalName: file.originalname,
             mimeType: file.mimetype,
@@ -47,9 +60,6 @@ export class UploadController {
             status: isDuplicate ? 'DUPLICATE' : 'PROCESSING',
           },
         });
-
-        // Run OCR / Vision Extraction
-        const analysis = await ocrAnalyzer.analyze(file.path, file.originalname);
 
         // Save Extraction record
         const extraction = await prisma.extraction.create({
@@ -134,7 +144,7 @@ export class UploadController {
         results.push({
           screenshotId: screenshot.id,
           originalName: screenshot.originalName,
-          filePath: `/uploads/${file.filename}`,
+          filePath: StorageService.getPublicUrl(storedFilePath),
           isDuplicate,
           classification: analysis.screenshotClass,
           confidence: analysis.confidence,
@@ -175,7 +185,7 @@ export class UploadController {
       const formatted = screenshots.map((s) => ({
         id: s.id,
         originalName: s.originalName,
-        filePath: `/uploads/${s.filePath}`,
+        filePath: StorageService.getPublicUrl(s.filePath),
         status: s.status,
         device: s.device?.name || 'Unassigned Device',
         createdAt: s.createdAt,
@@ -220,7 +230,7 @@ export class UploadController {
       return res.json({
         extraction: {
           ...extraction,
-          screenshotUrl: `/uploads/${extraction.screenshot.filePath}`,
+          screenshotUrl: StorageService.getPublicUrl(extraction.screenshot.filePath),
         },
       });
     } catch (error) {

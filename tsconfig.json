@@ -6,6 +6,7 @@
     "lib": ["ES2022", "DOM"],
     "strict": true,
     "esModuleInterop": true,
+    "allowJs": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
@@ -14,7 +15,8 @@
   "include": [
     "backend/src/**/*",
     "backend/prisma/**/*",
-    "backend/test/**/*"
+    "backend/test/**/*",
+    "api/**/*"
   ],
   "exclude": [
     "**/node_modules",

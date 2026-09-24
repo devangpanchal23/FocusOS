@@ -1,0 +1,11 @@
+{
+  "buildCommand": "cd backend && npm install && npx prisma generate && npm run build && cd ../frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "npm install",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index" }
+  ],
+  "crons": [
+    { "path": "/api/cron/retry-ingestion", "schedule": "0 0 * * *" }
+  ]
+}

@@ -8,5 +8,7 @@ dev.db-journal
 dev.db.pre-v5-backup
 dev.db.pre-v5.1-backup
 perf-test.db
+.dev-backend-port.json
+backend/prisma/data-export/
 *.log
 .DS_Store
