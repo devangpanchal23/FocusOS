@@ -10,8 +10,13 @@ import {
   Activity,
   Layers,
   X,
+  Terminal,
+  Key,
+  Copy,
+  RefreshCw,
 } from 'lucide-react';
 import { api } from '../services/api.js';
+import { v5Api } from '../services/v5.service';
 import { Device } from '../types/index.js';
 
 export const DevicesPage: React.FC = () => {
@@ -21,6 +26,14 @@ export const DevicesPage: React.FC = () => {
   const [name, setName] = useState<string>('');
   const [deviceType, setDeviceType] = useState<string>('PHONE');
   const [os, setOs] = useState<string>('ANDROID');
+
+  // V5: Desktop Companion pairing
+  const [pairingToken, setPairingToken] = useState<string | null>(null);
+  const [pairingDeviceId, setPairingDeviceId] = useState<string | null>(null);
+  const [pairingLoading, setPairingLoading] = useState(false);
+  const [pairingError, setPairingError] = useState<string | null>(null);
+  const [desktopStatus, setDesktopStatus] = useState<any>(null);
+  const [copied, setCopied] = useState(false);
 
   const fetchDevices = async () => {
     setIsLoading(true);
@@ -34,9 +47,45 @@ export const DevicesPage: React.FC = () => {
     }
   };
 
+  const fetchDesktopStatus = async () => {
+    try {
+      const res = await v5Api.desktop.getStatus();
+      setDesktopStatus(res);
+    } catch (err) {
+      // Non-fatal — desktop companion may not be set up on the backend yet.
+      setDesktopStatus(null);
+    }
+  };
+
   useEffect(() => {
     fetchDevices();
+    fetchDesktopStatus();
   }, []);
+
+  const handleGenerateToken = async () => {
+    setPairingLoading(true);
+    setPairingError(null);
+    try {
+      const res = await v5Api.desktop.register();
+      setPairingToken(res.syncToken);
+      setPairingDeviceId(res.deviceId);
+      await fetchDesktopStatus();
+      await fetchDevices();
+    } catch (err: any) {
+      setPairingError(err.message || 'Failed to generate a pairing token.');
+    } finally {
+      setPairingLoading(false);
+    }
+  };
+
+  const handleCopyCommand = () => {
+    if (!pairingToken) return;
+    const cmd = `npm run register -- --token=${pairingToken}`;
+    navigator.clipboard?.writeText(cmd).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,6 +214,93 @@ export const DevicesPage: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* V5: Desktop Companion */}
+      <div className="p-6 rounded-2xl bg-[#121218] border border-[#20202c] space-y-5">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center shrink-0">
+              <Terminal className="w-5 h-5 text-indigo-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white font-['Outfit']">Desktop Companion</h3>
+              <p className="text-[11px] text-zinc-400">
+                Lightweight Node.js agent that tracks active-window usage on this machine.
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-bold">
+            V5
+          </span>
+        </div>
+
+        <div className="p-4 rounded-xl bg-[#161622] border border-[#222232] space-y-2 text-xs text-zinc-400 leading-relaxed">
+          <p className="text-zinc-300 font-semibold">Pairing instructions:</p>
+          <ol className="list-decimal list-inside space-y-1">
+            <li>Generate a pairing token below.</li>
+            <li>In the <code className="text-indigo-300">desktop-agent</code> folder, run the printed command.</li>
+            <li>The agent registers this device and begins syncing usage every 30 seconds.</li>
+          </ol>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={handleGenerateToken}
+            disabled={pairingLoading}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition disabled:opacity-50"
+          >
+            <Key className="w-3.5 h-3.5" />
+            {pairingLoading ? 'Generating...' : 'Generate Pairing Token'}
+          </button>
+
+          {desktopStatus && (
+            <span className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+              <Activity className="w-3.5 h-3.5 text-emerald-400" />
+              {Array.isArray(desktopStatus)
+                ? `${desktopStatus.length} desktop device(s) registered`
+                : desktopStatus?.lastSyncAt
+                ? `Last sync: ${new Date(desktopStatus.lastSyncAt).toLocaleString()}`
+                : 'No sync activity yet'}
+            </span>
+          )}
+
+          <button
+            onClick={fetchDesktopStatus}
+            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-[#1c1c28] transition"
+            title="Refresh sync status"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {pairingError && (
+          <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-300 text-xs">
+            {pairingError}
+          </div>
+        )}
+
+        {pairingToken && (
+          <div className="p-4 rounded-xl bg-[#0d0d14] border border-indigo-500/20 space-y-2">
+            <p className="text-[11px] text-zinc-400">
+              Device registered{pairingDeviceId ? ` (id: ${pairingDeviceId})` : ''}. Run this in the{' '}
+              <code className="text-indigo-300">desktop-agent</code> folder:
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-[11px] font-mono text-emerald-300 bg-[#101018] border border-[#222232] rounded-lg px-3 py-2 overflow-x-auto whitespace-nowrap">
+                npm run register -- --token={pairingToken}
+              </code>
+              <button
+                onClick={handleCopyCommand}
+                className="p-2 rounded-lg bg-[#171724] hover:bg-[#202030] text-zinc-300 border border-[#2b2b3d] transition shrink-0"
+                title="Copy command"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {copied && <p className="text-[10px] text-emerald-400">Copied to clipboard.</p>}
+          </div>
+        )}
+      </div>
 
       {/* Add Device Modal */}
       {showAddModal && (

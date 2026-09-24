@@ -18,6 +18,9 @@ import {
   Activity,
   Layers,
   CheckCircle2,
+  CalendarRange,
+  MonitorSmartphone,
+  AlertTriangle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -111,6 +114,10 @@ export const AiAssistantPage: React.FC = () => {
           evidence: res.evidence,
           actionRecommendation: res.actionRecommendation,
           metricsContext: res.metricsContext,
+          // V5: grounding metadata — optional-chained since the exact shape may still evolve server-side.
+          dateRangeConsidered: res?.dateRangeConsidered,
+          devicesConsidered: res?.devicesConsidered,
+          dataAvailable: res?.dataAvailable,
         }),
         createdAt: new Date().toISOString(),
       };
@@ -304,6 +311,31 @@ export const AiAssistantPage: React.FC = () => {
                                   {parsedMeta.actionRecommendation.label}
                                 </Link>
                               </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* V5: grounding metadata strip — date range, devices considered, data availability */}
+                        {!isUser && parsedMeta && (parsedMeta.dateRangeConsidered || parsedMeta.devicesConsidered || parsedMeta.dataAvailable === false) && (
+                          <div className="mt-2.5 pt-2.5 border-t border-slate-700/40 flex flex-wrap items-center gap-1.5">
+                            {parsedMeta.dateRangeConsidered?.from && (
+                              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-400 border border-slate-700/60 font-mono">
+                                <CalendarRange className="w-3 h-3" />
+                                {parsedMeta.dateRangeConsidered.from}
+                                {parsedMeta.dateRangeConsidered.to ? ` → ${parsedMeta.dateRangeConsidered.to}` : ''}
+                              </span>
+                            )}
+                            {Array.isArray(parsedMeta.devicesConsidered) && parsedMeta.devicesConsidered.length > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-400 border border-slate-700/60">
+                                <MonitorSmartphone className="w-3 h-3" />
+                                {parsedMeta.devicesConsidered.map((d: any) => d?.name || d?.id).filter(Boolean).join(', ')}
+                              </span>
+                            )}
+                            {parsedMeta.dataAvailable === false && (
+                              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
+                                <AlertTriangle className="w-3 h-3" />
+                                No grounding data
+                              </span>
                             )}
                           </div>
                         )}

@@ -46,6 +46,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Browser Intelligence Upgrade: today's browser-time summary (additive).
+  loadBrowserSummary();
+
   btnOpenApp.addEventListener('click', () => {
     chrome.tabs.create({ url: 'http://localhost:5173/focus' });
   });
@@ -61,3 +64,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 });
+
+// Browser Intelligence Upgrade: fetch and render today's browser-time summary.
+async function loadBrowserSummary() {
+  const section = document.getElementById('browser-summary-section');
+  const totalEl = document.getElementById('browser-summary-total');
+  const domainEl = document.getElementById('browser-summary-domain');
+  if (!section || !totalEl || !domainEl) return;
+
+  try {
+    const { focusos_token: token } = await new Promise((resolve) =>
+      chrome.storage.local.get(['focusos_token'], resolve)
+    );
+    if (!token) return;
+
+    const res = await fetch(`${API_BASE}/v5/browser/summary`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) return;
+
+    const summary = await res.json();
+    const totalMinutes = Math.round(
+      summary.totalMinutes ?? (summary.totalSeconds ? summary.totalSeconds / 60 : 0)
+    );
+    if (!Number.isFinite(totalMinutes)) return;
+
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    totalEl.textContent = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+    const topDomain = summary.topDomain?.domain || summary.topDomain || '';
+    domainEl.textContent = topDomain ? `Top: ${topDomain}` : '';
+
+    section.style.display = '';
+  } catch {
+    // Backend unreachable or endpoint not yet available — hide the block, don't break the popup.
+    section.style.display = 'none';
+  }
+}

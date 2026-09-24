@@ -65,6 +65,16 @@ model User {
   subscription       SubscriptionTier?
   invoices           BillingInvoice[]
   governanceAudits   AiGovernanceAudit[]
+
+  // Version 5 Unified Event Architecture Relations
+  dataSources               DataSource[]
+  rawEvents                 RawEvent[]
+  unifiedEvents              UnifiedEvent[]
+  browserExclusions         BrowserExclusionRule[]
+  domainCategoryRules       DomainCategoryRule[]
+  timeIntelligenceBaselines TimeIntelligenceBaseline[]
+  timeIntelligenceAnomalies TimeIntelligenceAnomaly[]
+  mobileLinkTokens          MobileLinkToken[]
 }
 
 model Profile {
@@ -93,6 +103,10 @@ model Device {
 
   screenshots  Screenshot[]
   usageRecords UsageRecord[]
+
+  dataSources    DataSource[]
+  rawEvents      RawEvent[]
+  unifiedEvents  UnifiedEvent[]
 }
 
 model Screenshot {
@@ -155,6 +169,8 @@ model Category {
 
   applications Application[]
   usageRecords UsageRecord[]
+  unifiedEvents UnifiedEvent[]
+  domainCategoryRules DomainCategoryRule[]
 }
 
 model Application {
@@ -168,6 +184,7 @@ model Application {
 
   aliases           ApplicationAlias[]
   usageRecords      UsageRecord[]
+  unifiedEvents     UnifiedEvent[]
 }
 
 model ApplicationAlias {
@@ -287,17 +304,37 @@ model AutomationRule {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
+  // Version 5: multi-condition automation
+  conditionLogic    String          @default("SINGLE") // SINGLE (legacy behavior), ALL (AND-chain via AutomationCondition)
+  conditions        AutomationCondition[]
+
   logs              AutomationLog[]
 }
 
+model AutomationCondition {
+  id                String         @id @default(uuid())
+  ruleId            String
+  rule              AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  triggerType       String         // SCREEN_TIME_LIMIT, REELS_LIMIT, APP_TIME_LIMIT, CATEGORY_TIME_LIMIT, ...
+  conditionOperator String         // GREATER_THAN, LESS_THAN, EQUALS
+  thresholdValue    String
+  scopeValue        String?        // e.g. app name / category name for APP_TIME_LIMIT / CATEGORY_TIME_LIMIT
+  timeWindowStart   String?        // "20:00" — optional time-window gate
+  timeWindowEnd     String?        // "23:00"
+  orderIndex        Int            @default(0)
+  createdAt         DateTime       @default(now())
+}
+
 model AutomationLog {
-  id          String         @id @default(uuid())
-  ruleId      String
-  rule        AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  message     String
-  triggeredAt DateTime       @default(now())
+  id                   String         @id @default(uuid())
+  ruleId               String
+  rule                 AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message              String
+  triggeredAt          DateTime       @default(now())
+  conditionSnapshotJson String?       // serialized per-condition results at trigger time
+  triggerSource        String         @default("SCHEDULED") // SCHEDULED, MANUAL_TEST, API
 }
 
 model BlockRule {
@@ -845,6 +882,154 @@ model FeatureFlag {
   experimentVariants String   @default("[]") // JSON: [{ variant: "A", weight: 50 }, { variant: "B", weight: 50 }]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+}
+
+// ==========================================
+// VERSION 5 MODELS — UNIFIED EVENT ARCHITECTURE
+// ==========================================
+
+model DataSource {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceType     String    // SCREENSHOT_UPLOAD, BROWSER_EXTENSION, DESKTOP_AGENT, MOBILE_APP, MANUAL
+  deviceId       String?
+  device         Device?   @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  adapterVersion String    @default("1.0.0")
+  status         String    @default("ACTIVE") // ACTIVE, PAUSED, ERROR, REVOKED
+  lastSeenAt     DateTime?
+  lastSyncAt     DateTime?
+  syncToken      String?   @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  rawEvents      RawEvent[]
+
+  @@index([userId, sourceType])
+}
+
+model RawEvent {
+  id               String        @id @default(uuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dataSourceId     String
+  dataSource       DataSource    @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  deviceId         String?
+  device           Device?       @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  eventHash        String        // sha256(userId+sourceType+deviceId+occurredAt+payload) for dedup
+  payloadJson      String        // raw untransformed payload as received
+  occurredAt       DateTime      // when the activity actually happened (client clock)
+  receivedAt       DateTime      @default(now()) // when backend ingested it
+  processingStatus String        @default("PENDING") // PENDING, PROCESSED, FAILED, DUPLICATE
+  retryCount       Int           @default(0)
+  errorMessage     String?
+  createdAt        DateTime      @default(now())
+
+  unifiedEvent     UnifiedEvent?
+
+  @@unique([userId, eventHash])
+  @@index([userId, processingStatus])
+  @@index([dataSourceId, occurredAt])
+}
+
+model UnifiedEvent {
+  id              String       @id @default(uuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rawEventId      String?      @unique
+  rawEvent        RawEvent?    @relation(fields: [rawEventId], references: [id], onDelete: SetNull)
+  deviceId        String?
+  device          Device?      @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  sourceType      String       // SCREENSHOT_UPLOAD, BROWSER_EXTENSION, DESKTOP_AGENT, MOBILE_APP, MANUAL
+  eventType       String       // APP_SESSION, DOMAIN_SESSION, SCREENSHOT_SUMMARY, IDLE, FOCUS_SESSION
+  applicationId   String?
+  application     Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  categoryId      String?
+  category        Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  domain          String?      // for browser events, e.g. "youtube.com"
+  title           String?      // window/tab title, redact-able
+  startedAt       DateTime
+  endedAt         DateTime?
+  durationSeconds Int          @default(0)
+  isDistraction   Boolean      @default(false)
+  isIdle          Boolean      @default(false)
+  date            String       // YYYY-MM-DD, derived from startedAt in user timezone
+  confidence      Float        @default(1.0)
+  metadataJson    String       @default("{}")
+  createdAt       DateTime     @default(now())
+
+  @@index([userId, date])
+  @@index([userId, sourceType, date])
+  @@index([userId, startedAt])
+}
+
+model BrowserExclusionRule {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domainPattern String   // "docs.google.com", "*.internal-tool.com"
+  reason        String?
+  isEnabled     Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, domainPattern])
+}
+
+model DomainCategoryRule {
+  id            String    @id @default(uuid())
+  userId        String?   // null = global default rule, non-null = user override
+  user          User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domainPattern String
+  categoryId    String
+  category      Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  isDistraction Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  @@unique([userId, domainPattern])
+}
+
+model TimeIntelligenceBaseline {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scopeType     String   // APPLICATION, CATEGORY
+  scopeId       String   // applicationId or categoryId
+  hourOfDay     Int      // 0-23
+  meanMinutes   Float
+  stdDevMinutes Float
+  sampleDays    Int
+  computedAt    DateTime @default(now())
+
+  @@unique([userId, scopeType, scopeId, hourOfDay])
+}
+
+model TimeIntelligenceAnomaly {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date          String   // YYYY-MM-DD
+  scopeType     String   // APPLICATION, CATEGORY
+  scopeId       String
+  scopeLabel    String   // resolved app/category name for display without a join
+  hourOfDay     Int
+  actualMinutes Float
+  baselineMean  Float
+  zScore        Float
+  direction     String   // SPIKE, DROP
+  severity      String   // LOW, MEDIUM, HIGH
+  createdAt     DateTime @default(now())
+
+  @@index([userId, date])
+}
+
+model MobileLinkToken {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code       String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
 }
 
 

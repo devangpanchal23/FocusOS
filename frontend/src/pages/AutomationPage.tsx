@@ -1,7 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Cpu, Plus, Trash2, Play, CheckCircle, AlertTriangle, ShieldCheck, History } from 'lucide-react';
+import { Cpu, Plus, Trash2, Play, CheckCircle, AlertTriangle, ShieldCheck, History, XCircle, FlaskConical, Sliders, X } from 'lucide-react';
 import { api } from '../services/api';
-import { AutomationRule, AutomationLog } from '../types';
+import { automationV5Api } from '../services/v5.service';
+import { AutomationRule, AutomationLog, AutomationCondition, AutomationTestResult } from '../types';
+
+const ADVANCED_TRIGGER_TYPES = ['SCREEN_TIME_LIMIT', 'REELS_LIMIT', 'REEL_COUNT_LIMIT', 'FOCUS_START'];
+const ADVANCED_OPERATORS = ['GREATER_THAN', 'LESS_THAN', 'EQUALS'];
+
+function emptyCondition(): AutomationCondition {
+  return {
+    triggerType: 'SCREEN_TIME_LIMIT',
+    conditionOperator: 'GREATER_THAN',
+    thresholdValue: '30',
+    scopeValue: '',
+    timeWindowStart: '',
+    timeWindowEnd: '',
+  };
+}
 
 export const AutomationPage: React.FC = () => {
   const [rules, setRules] = useState<AutomationRule[]>([]);
@@ -11,12 +26,23 @@ export const AutomationPage: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [evalResult, setEvalResult] = useState<string | null>(null);
 
-  // Form State
+  // Form State (Simple mode — unchanged behavior)
   const [name, setName] = useState('');
   const [triggerType, setTriggerType] = useState('REELS_LIMIT');
   const [thresholdValue, setThresholdValue] = useState('45');
   const [actionType, setActionType] = useState('SHOW_NOTIFICATION');
   const [actionTarget, setActionTarget] = useState('Instagram');
+
+  // V5: Simple/Advanced builder mode
+  const [builderMode, setBuilderMode] = useState<'SIMPLE' | 'ADVANCED'>('SIMPLE');
+  const [conditions, setConditions] = useState<AutomationCondition[]>([emptyCondition()]);
+  const [testResult, setTestResult] = useState<AutomationTestResult | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testError, setTestError] = useState<string | null>(null);
+
+  // V5: per-rule "Test Rule" (dry-run against a saved rule)
+  const [testingRuleId, setTestingRuleId] = useState<string | null>(null);
+  const [ruleTestResults, setRuleTestResults] = useState<Record<string, AutomationTestResult>>({});
 
   const loadData = async () => {
     try {
@@ -40,22 +66,105 @@ export const AutomationPage: React.FC = () => {
 
   const handleCreateRule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !thresholdValue) return;
+    if (!name.trim()) return;
 
     try {
-      await api.createAutomationRule({
-        name: name.trim(),
-        triggerType,
-        conditionOperator: 'GREATER_THAN',
-        thresholdValue,
-        actionType,
-        actionTarget,
-      });
+      if (builderMode === 'SIMPLE') {
+        if (!thresholdValue) return;
+        await api.createAutomationRule({
+          name: name.trim(),
+          triggerType,
+          conditionOperator: 'GREATER_THAN',
+          thresholdValue,
+          actionType,
+          actionTarget,
+        });
+      } else {
+        const validConditions = conditions.filter((c) => c.triggerType && c.thresholdValue);
+        if (validConditions.length === 0) return;
+        // Legacy single-condition columns stay populated from the first row for backward compatibility;
+        // conditionLogic/conditions carry the full AND-chain.
+        await api.createAutomationRule({
+          name: name.trim(),
+          triggerType: validConditions[0].triggerType,
+          conditionOperator: validConditions[0].conditionOperator,
+          thresholdValue: validConditions[0].thresholdValue,
+          actionType,
+          actionTarget,
+          conditionLogic: 'ALL',
+          conditions: validConditions.map((c, idx) => ({ ...c, orderIndex: idx })),
+        });
+      }
+      resetForm();
       setShowAddModal(false);
-      setName('');
       loadData();
     } catch (err) {
       console.error('Failed to create rule:', err);
+    }
+  };
+
+  const resetForm = () => {
+    setName('');
+    setTriggerType('REELS_LIMIT');
+    setThresholdValue('45');
+    setActionType('SHOW_NOTIFICATION');
+    setActionTarget('Instagram');
+    setBuilderMode('SIMPLE');
+    setConditions([emptyCondition()]);
+    setTestResult(null);
+    setTestError(null);
+  };
+
+  const updateCondition = (idx: number, patch: Partial<AutomationCondition>) => {
+    setConditions((prev) => prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
+  };
+
+  const addConditionRow = () => setConditions((prev) => [...prev, emptyCondition()]);
+
+  const removeConditionRow = (idx: number) =>
+    setConditions((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev));
+
+  const handleTestDraft = async () => {
+    setTesting(true);
+    setTestError(null);
+    setTestResult(null);
+    try {
+      const draft =
+        builderMode === 'SIMPLE'
+          ? {
+              name: name.trim() || 'Untitled Rule',
+              triggerType,
+              conditionOperator: 'GREATER_THAN',
+              thresholdValue,
+              actionType,
+              actionTarget,
+              conditionLogic: 'SINGLE',
+            }
+          : {
+              name: name.trim() || 'Untitled Rule',
+              actionType,
+              actionTarget,
+              conditionLogic: 'ALL',
+              conditions: conditions.filter((c) => c.triggerType && c.thresholdValue).map((c, idx) => ({ ...c, orderIndex: idx })),
+            };
+      const res = await automationV5Api.testDraftRule(draft);
+      setTestResult(res);
+    } catch (err: any) {
+      setTestError(err.message || 'Failed to test draft rule.');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleTestSavedRule = async (ruleId: string) => {
+    setTestingRuleId(ruleId);
+    try {
+      const res = await automationV5Api.testRule(ruleId);
+      setRuleTestResults((prev) => ({ ...prev, [ruleId]: res }));
+    } catch (err: any) {
+      alert(`Test rule failed: ${err.message}`);
+    } finally {
+      setTestingRuleId(null);
     }
   };
 
@@ -163,17 +272,44 @@ export const AutomationPage: React.FC = () => {
                   </span>
                 </div>
 
-                <h4 className="text-base font-bold text-white">{rule.name}</h4>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-base font-bold text-white">{rule.name}</h4>
+                  {rule.conditionLogic === 'ALL' && rule.conditions && rule.conditions.length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                      Advanced &middot; AND chain
+                    </span>
+                  )}
+                </div>
 
                 {/* IF - THEN visual pill */}
                 <div className="mt-4 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-2 text-xs">
-                  <div className="flex items-start gap-2">
-                    <span className="font-bold text-indigo-400 uppercase text-[10px] mt-0.5">IF</span>
-                    <span className="text-slate-300">
-                      {rule.triggerType.replace(/_/g, ' ')} &gt;{' '}
-                      <strong className="text-white">{rule.thresholdValue} min</strong>
-                    </span>
-                  </div>
+                  {rule.conditionLogic === 'ALL' && rule.conditions && rule.conditions.length > 0 ? (
+                    rule.conditions.map((c, i) => (
+                      <React.Fragment key={c.id || i}>
+                        {i > 0 && (
+                          <div className="text-[10px] font-bold text-indigo-400 uppercase pl-1">AND</div>
+                        )}
+                        <div className="flex items-start gap-2">
+                          <span className="font-bold text-indigo-400 uppercase text-[10px] mt-0.5">IF</span>
+                          <span className="text-slate-300">
+                            {c.triggerType.replace(/_/g, ' ')} {c.conditionOperator.replace(/_/g, ' ').toLowerCase()}{' '}
+                            <strong className="text-white">{c.thresholdValue}</strong>
+                            {c.timeWindowStart && c.timeWindowEnd && (
+                              <span className="text-slate-500"> ({c.timeWindowStart}–{c.timeWindowEnd})</span>
+                            )}
+                          </span>
+                        </div>
+                      </React.Fragment>
+                    ))
+                  ) : (
+                    <div className="flex items-start gap-2">
+                      <span className="font-bold text-indigo-400 uppercase text-[10px] mt-0.5">IF</span>
+                      <span className="text-slate-300">
+                        {rule.triggerType.replace(/_/g, ' ')} &gt;{' '}
+                        <strong className="text-white">{rule.thresholdValue} min</strong>
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-start gap-2">
                     <span className="font-bold text-emerald-400 uppercase text-[10px] mt-0.5">THEN</span>
                     <span className="text-slate-300">
@@ -188,9 +324,31 @@ export const AutomationPage: React.FC = () => {
                     Last triggered: {new Date(rule.lastTriggeredAt).toLocaleString()}
                   </div>
                 )}
+
+                {ruleTestResults[rule.id] && (
+                  <div className="mt-3 p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80 space-y-1.5">
+                    <div className={`text-[11px] font-bold flex items-center gap-1.5 ${ruleTestResults[rule.id].wouldTrigger ? 'text-emerald-400' : 'text-slate-400'}`}>
+                      {ruleTestResults[rule.id].wouldTrigger ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                      {ruleTestResults[rule.id].wouldTrigger ? 'Would trigger' : 'Would not trigger'}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {ruleTestResults[rule.id].conditionResults?.map((cr, i) => (
+                        <span
+                          key={i}
+                          className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                            cr.passed ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'
+                          }`}
+                        >
+                          {cr.actualValue} / {cr.threshold} {cr.passed ? 'PASS' : 'FAIL'}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-slate-400">{ruleTestResults[rule.id].explanation}</p>
+                  </div>
+                )}
               </div>
 
-              <div className="pt-4 mt-4 border-t border-slate-800 flex items-center justify-between">
+              <div className="pt-4 mt-4 border-t border-slate-800 flex items-center justify-between gap-2">
                 <button
                   onClick={() => handleToggle(rule)}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
@@ -202,13 +360,23 @@ export const AutomationPage: React.FC = () => {
                   {rule.isEnabled ? 'Disable' : 'Enable'}
                 </button>
 
-                <button
-                  onClick={() => handleDelete(rule.id)}
-                  className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition"
-                  title="Delete rule"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleTestSavedRule(rule.id)}
+                    disabled={testingRuleId === rule.id}
+                    className="p-1.5 text-slate-500 hover:text-cyan-400 rounded-lg hover:bg-slate-800 transition disabled:opacity-50"
+                    title="Test rule (dry-run)"
+                  >
+                    <FlaskConical className={`w-4 h-4 ${testingRuleId === rule.id ? 'animate-pulse' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(rule.id)}
+                    className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition"
+                    title="Delete rule"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           ))
@@ -260,9 +428,32 @@ export const AutomationPage: React.FC = () => {
 
       {/* Modal: Add Automation */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-4">Create Automation Rule</h3>
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className={`bg-slate-900 border border-slate-800 rounded-2xl w-full p-6 shadow-2xl my-8 ${builderMode === 'ADVANCED' ? 'max-w-xl' : 'max-w-md'}`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Create Automation Rule</h3>
+              <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-950 border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setBuilderMode('SIMPLE')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition ${
+                    builderMode === 'SIMPLE' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Simple
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBuilderMode('ADVANCED')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition flex items-center gap-1 ${
+                    builderMode === 'ADVANCED' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Sliders className="w-3 h-3" /> Advanced
+                </button>
+              </div>
+            </div>
+
             <form onSubmit={handleCreateRule} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Rule Name</label>
@@ -276,34 +467,122 @@ export const AutomationPage: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Trigger Condition (IF)
-                </label>
-                <select
-                  value={triggerType}
-                  onChange={(e) => setTriggerType(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
-                >
-                  <option value="REELS_LIMIT">Short-Form / Reels Time Exceeds</option>
-                  <option value="SCREEN_TIME_LIMIT">Total Daily Screen Time Exceeds</option>
-                  <option value="REEL_COUNT_LIMIT">Reel Count Watched Exceeds</option>
-                </select>
-              </div>
+              {builderMode === 'SIMPLE' ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Trigger Condition (IF)
+                    </label>
+                    <select
+                      value={triggerType}
+                      onChange={(e) => setTriggerType(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
+                    >
+                      <option value="REELS_LIMIT">Short-Form / Reels Time Exceeds</option>
+                      <option value="SCREEN_TIME_LIMIT">Total Daily Screen Time Exceeds</option>
+                      <option value="REEL_COUNT_LIMIT">Reel Count Watched Exceeds</option>
+                    </select>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Threshold Value (Minutes or Count)
-                </label>
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  value={thresholdValue}
-                  onChange={(e) => setThresholdValue(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
-                />
-              </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Threshold Value (Minutes or Count)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      value={thresholdValue}
+                      onChange={(e) => setThresholdValue(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Conditions (all must pass — AND chain)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={addConditionRow}
+                      className="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Add Condition
+                    </button>
+                  </div>
+
+                  {conditions.map((cond, idx) => (
+                    <div key={idx} className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+                      {idx > 0 && (
+                        <div className="text-[10px] font-bold text-indigo-400 uppercase">AND</div>
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={cond.triggerType}
+                          onChange={(e) => updateCondition(idx, { triggerType: e.target.value })}
+                          className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                        >
+                          {ADVANCED_TRIGGER_TYPES.map((t) => (
+                            <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={cond.conditionOperator}
+                          onChange={(e) => updateCondition(idx, { conditionOperator: e.target.value })}
+                          className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                        >
+                          {ADVANCED_OPERATORS.map((op) => (
+                            <option key={op} value={op}>{op.replace(/_/g, ' ')}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          placeholder="Threshold"
+                          value={cond.thresholdValue}
+                          onChange={(e) => updateCondition(idx, { thresholdValue: e.target.value })}
+                          className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Scope (optional, e.g. Instagram)"
+                          value={cond.scopeValue || ''}
+                          onChange={(e) => updateCondition(idx, { scopeValue: e.target.value })}
+                          className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 items-center">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="time"
+                            value={cond.timeWindowStart || ''}
+                            onChange={(e) => updateCondition(idx, { timeWindowStart: e.target.value })}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                          />
+                          <span className="text-[10px] text-slate-500">to</span>
+                          <input
+                            type="time"
+                            value={cond.timeWindowEnd || ''}
+                            onChange={(e) => updateCondition(idx, { timeWindowEnd: e.target.value })}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeConditionRow(idx)}
+                          disabled={conditions.length === 1}
+                          className="text-[11px] text-slate-500 hover:text-rose-400 disabled:opacity-30 flex items-center justify-end gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" /> Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
@@ -334,10 +613,54 @@ export const AutomationPage: React.FC = () => {
                 />
               </div>
 
+              {/* Test Rule (dry-run, no save, no action execution) */}
+              <div className="pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={handleTestDraft}
+                  disabled={testing}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 font-medium text-xs transition disabled:opacity-50"
+                >
+                  <FlaskConical className={`w-3.5 h-3.5 text-cyan-400 ${testing ? 'animate-pulse' : ''}`} />
+                  {testing ? 'Testing...' : 'Test Rule'}
+                </button>
+
+                {testError && (
+                  <p className="mt-2 text-[11px] text-rose-400">{testError}</p>
+                )}
+
+                {testResult && (
+                  <div className="mt-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+                    <div className={`text-xs font-bold flex items-center gap-1.5 ${testResult.wouldTrigger ? 'text-emerald-400' : 'text-slate-400'}`}>
+                      {testResult.wouldTrigger ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                      {testResult.wouldTrigger ? 'Would trigger' : 'Would not trigger'}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {testResult.conditionResults?.map((cr, i) => (
+                        <span
+                          key={i}
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold border ${
+                            cr.passed
+                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                              : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                          }`}
+                        >
+                          {cr.actualValue} vs {cr.threshold} — {cr.passed ? 'PASS' : 'FAIL'}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-slate-400">{testResult.explanation}</p>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-2 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    resetForm();
+                    setShowAddModal(false);
+                  }}
                   className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white transition"
                 >
                   Cancel

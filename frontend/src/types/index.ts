@@ -339,6 +339,33 @@ export interface AutomationRule {
   lastTriggeredAt?: string | null;
   createdAt: string;
   logs?: AutomationLog[];
+  // V5: multi-condition (AND-chain) automation upgrade — additive, legacy SINGLE rules unaffected.
+  conditionLogic?: 'SINGLE' | 'ALL';
+  conditions?: AutomationCondition[];
+}
+
+// V5: dynamic condition row for Advanced-mode automation rules.
+export interface AutomationCondition {
+  id?: string;
+  triggerType: string;
+  conditionOperator: string;
+  thresholdValue: string;
+  scopeValue?: string;
+  timeWindowStart?: string;
+  timeWindowEnd?: string;
+  orderIndex?: number;
+}
+
+// V5: response shape for POST /api/automation/rules/:id/test and /test-draft
+export interface AutomationTestResult {
+  wouldTrigger: boolean;
+  conditionResults: Array<{
+    conditionId?: string;
+    actualValue: number | string;
+    threshold: number | string;
+    passed: boolean;
+  }>;
+  explanation: string;
 }
 
 export interface AutomationLog {

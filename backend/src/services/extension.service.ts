@@ -1,4 +1,5 @@
 import { prisma } from '../config/db.js';
+import { EventStoreService } from './v5/eventStore.service.js';
 
 export class ExtensionService {
   /**
@@ -76,7 +77,7 @@ export class ExtensionService {
     durationSeconds: number;
     isDistraction?: boolean;
     activeTabTitle?: string;
-  }) {
+  }, deviceId?: string | null) {
     const today = new Date().toISOString().split('T')[0];
 
     // Find or create daily metric
@@ -98,6 +99,10 @@ export class ExtensionService {
         attentionScore: 75
       }
     });
+
+    EventStoreService.writeFromHeartbeat(userId, deviceId ?? null, data).catch((err) =>
+      console.error('EventStoreService.writeFromHeartbeat adapter error:', err)
+    );
 
     return { success: true, loggedSeconds: data.durationSeconds, dailyMetricId: dailyMetric.id };
   }

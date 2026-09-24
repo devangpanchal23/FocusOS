@@ -28,6 +28,8 @@ import {
   Users,
   Code2,
   Lock,
+  Compass,
+  History,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext.js';
 
@@ -48,6 +50,11 @@ export const Sidebar: React.FC = () => {
     { label: 'Ecosystem & Apps', path: '/ecosystem', icon: Share2, isNew: true },
     { label: 'Enterprise & SaaS', path: '/platform', icon: Building2, isNew: true },
     { label: 'Devices', path: '/devices', icon: Smartphone },
+  ];
+
+  const v5Nav = [
+    { label: 'Browser Intelligence', path: '/browser', icon: Compass, badge: 'V5' },
+    { label: 'Unified Timeline', path: '/timeline', icon: History, badge: 'V5' },
   ];
 
   const coreNav = [
@@ -121,6 +128,40 @@ export const Sidebar: React.FC = () => {
               </div>
               {item.badge && (
                 <span className="text-[8px] font-mono px-1 rounded bg-amber-500/20 text-amber-300 font-bold">
+                  {item.badge}
+                </span>
+              )}
+            </NavLink>
+          );
+        })}
+
+        {/* V5 UNIFIED INGESTION & INTELLIGENCE */}
+        <div className="pt-4 px-3 pb-1.5 text-[11px] font-semibold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
+          <span>Unified Intelligence</span>
+          <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">
+            V5
+          </span>
+        </div>
+        {v5Nav.map((item) => {
+          const Icon = item.icon;
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) =>
+                `flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                  isActive
+                    ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 shadow-sm font-semibold'
+                    : 'text-zinc-300 hover:text-white hover:bg-[#15151e]'
+                }`
+              }
+            >
+              <div className="flex items-center gap-3">
+                <Icon className="w-4 h-4 text-emerald-400/90" />
+                <span>{item.label}</span>
+              </div>
+              {item.badge && (
+                <span className="text-[8px] font-mono px-1 rounded bg-emerald-500/20 text-emerald-300 font-bold">
                   {item.badge}
                 </span>
               )}

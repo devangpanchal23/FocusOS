@@ -5,6 +5,7 @@ import { calculateFileHash, ocrAnalyzer } from '../services/ocr.service.js';
 import { NormalizationService } from '../services/normalization.service.js';
 import { AnalyticsService } from '../services/analytics.service.js';
 import { parseDurationToMinutes } from '../utils/durationParser.js';
+import { EventStoreService } from '../services/v5/eventStore.service.js';
 
 export class UploadController {
   /**
@@ -312,7 +313,7 @@ export class UploadController {
           const app = await NormalizationService.resolveApplication(finalName, edit?.category || appData.category);
 
           // Create or update UsageRecord
-          await prisma.usageRecord.create({
+          const createdUsageRecord = await prisma.usageRecord.create({
             data: {
               userId,
               deviceId: effectiveDeviceId,
@@ -329,6 +330,20 @@ export class UploadController {
               status: 'CONFIRMED',
             },
           });
+
+          EventStoreService.writeFromUsageRecord(
+            userId,
+            {
+              id: createdUsageRecord.id,
+              applicationId: createdUsageRecord.applicationId,
+              categoryId: createdUsageRecord.categoryId,
+              deviceId: createdUsageRecord.deviceId,
+              date: createdUsageRecord.date,
+              activeMinutes: createdUsageRecord.activeMinutes,
+              confidence: createdUsageRecord.confidence,
+            },
+            { applicationName: finalName, categoryName: edit?.category || appData.category }
+          ).catch((err) => console.error('EventStoreService.writeFromUsageRecord adapter error:', err));
         }
       }
 

@@ -14,6 +14,7 @@ import { exportRouter } from './export.routes.js';
 import { insightRouter } from './insight.routes.js';
 import { v3Router } from './v3/v3.routes.js';
 import { v4Router } from './v4/v4.routes.js';
+import { v5Router } from './v5/v5.routes.js';
 
 export const apiRouter = Router();
 
@@ -39,6 +40,9 @@ apiRouter.use('/v3', v3Router);
 
 // V4 Autonomous Platform & Global Scale Endpoints
 apiRouter.use('/v4', v4Router);
+
+// V5 Unified Event Architecture, Browser/Desktop Intelligence, Timeline, Automation+
+apiRouter.use('/v5', v5Router);
 
 apiRouter.get('/health', (_req, res) => {
   res.json({

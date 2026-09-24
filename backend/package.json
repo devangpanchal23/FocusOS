@@ -13,6 +13,7 @@
     "prisma:generate": "prisma generate && node -e \"try { fs.cpSync('node_modules/@prisma', '../node_modules/@prisma', {recursive:true}); fs.cpSync('node_modules/.prisma', '../node_modules/.prisma', {recursive:true}); } catch(e){}\"",
     "prisma:push": "prisma db push",
     "prisma:seed": "tsx prisma/seed.ts",
+    "backfill:v5": "tsx prisma/scripts/backfillUnifiedEvents.ts",
     "test": "tsx test/index.test.ts",
     "test:v2": "tsx test/v2.test.ts",
     "test:v3": "tsx test/v3.test.ts",

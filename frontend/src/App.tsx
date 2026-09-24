@@ -37,6 +37,10 @@ import { ReflectionsPage } from './pages/v4/ReflectionsPage';
 import { EcosystemPage } from './pages/v4/EcosystemPage';
 import { PlatformEnterprisePage } from './pages/v4/PlatformEnterprisePage';
 
+// Version 5 Unified Ingestion & Intelligence Pages
+import { BrowserIntelligencePage } from './pages/v5/BrowserIntelligencePage';
+import { TimelinePage } from './pages/v5/TimelinePage';
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token, isLoading } = useAuth();
 
@@ -176,6 +180,24 @@ export const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <DevicesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Version 5 Unified Ingestion & Intelligence Routes */}
+          <Route
+            path="/browser"
+            element={
+              <ProtectedRoute>
+                <BrowserIntelligencePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/timeline"
+            element={
+              <ProtectedRoute>
+                <TimelinePage />
               </ProtectedRoute>
             }
           />

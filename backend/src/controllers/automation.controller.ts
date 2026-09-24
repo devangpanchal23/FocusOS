@@ -57,4 +57,22 @@ export class AutomationController {
       res.status(500).json({ error: err.message });
     }
   }
+
+  static async testRule(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const result = await AutomationService.testRule(req.user!.id, req.params.id);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+
+  static async testDraftRule(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const result = await AutomationService.testRule(req.user!.id, undefined, req.body);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
 }

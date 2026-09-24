@@ -1,0 +1,27 @@
+{
+  "name": "focusos-desktop-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "FocusOS Desktop Companion - lightweight Node.js background agent that tracks active window usage and syncs it to the FocusOS backend",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "register": "tsx src/deviceRegistration.ts"
+  },
+  "dependencies": {
+    "active-win": "^8.2.1",
+    "better-sqlite3": "^11.3.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.17.6",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

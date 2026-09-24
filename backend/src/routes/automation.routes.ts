@@ -12,3 +12,5 @@ automationRouter.put('/rules/:id', AutomationController.updateRule);
 automationRouter.delete('/rules/:id', AutomationController.deleteRule);
 automationRouter.get('/logs', AutomationController.getLogs);
 automationRouter.post('/evaluate', AutomationController.evaluateRules);
+automationRouter.post('/rules/:id/test', AutomationController.testRule);
+automationRouter.post('/rules/test-draft', AutomationController.testDraftRule);

@@ -166,6 +166,37 @@ body {
   margin-bottom: 6px;
 }
 
+.browser-summary-section {
+  margin-bottom: 12px;
+}
+
+.browser-summary-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.browser-summary-total {
+  font-size: 18px;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: -0.02em;
+}
+
+.browser-summary-domain {
+  font-size: 11px;
+  color: #94a3b8;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .block-list {
   list-style: none;
   background: rgba(15, 23, 42, 0.5);

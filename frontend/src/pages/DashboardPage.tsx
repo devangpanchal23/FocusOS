@@ -24,6 +24,7 @@ import { CategoryDonutChart } from '../components/charts/CategoryDonutChart.js';
 import { HourlyActivityChart } from '../components/charts/HourlyActivityChart.js';
 import { DeviceBarChart } from '../components/charts/DeviceBarChart.js';
 import { InsightBanner } from '../components/common/InsightBanner';
+import { TimeIntelligencePanel } from '../components/v5/TimeIntelligencePanel';
 import { useNavigate } from 'react-router-dom';
 
 export const DashboardPage: React.FC = () => {
@@ -345,6 +346,9 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* V5 Personal Time Intelligence */}
+        <TimeIntelligencePanel />
       </main>
 
       {/* Modals */}
