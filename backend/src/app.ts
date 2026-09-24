@@ -34,13 +34,21 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded screenshots statically only when NOT using Vercel Blob —
-// production filesystems are ephemeral/read-only, so nothing should try to
-// create or write to a local uploads directory there (storage.service.ts
-// routes files to Blob instead in that case).
-if (!useBlobStorage) {
-  ensureLocalUploadDir();
-  app.use('/uploads', express.static(localUploadDir));
+// Serve uploaded screenshots from local disk only in a real local-filesystem
+// environment (never on Vercel, where the deployment filesystem is
+// read-only outside /tmp — process.env.VERCEL is set automatically by the
+// platform). When Blob isn't configured yet on Vercel, uploads simply won't
+// have a working storage backend until BLOB_READ_WRITE_TOKEN is set — that
+// degrades the upload feature, but must never crash the whole app at module
+// load, which previously took down every route, not just uploads. The
+// try/catch is defense-in-depth on top of the environment check.
+if (!useBlobStorage && !process.env.VERCEL) {
+  try {
+    ensureLocalUploadDir();
+    app.use('/uploads', express.static(localUploadDir));
+  } catch (err) {
+    console.error('Failed to set up local upload directory (non-fatal):', err);
+  }
 }
 
 // Mount API routes

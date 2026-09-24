@@ -35,6 +35,16 @@ export async function persistFile(
     return { filePath: blob.url, publicUrl: blob.url };
   }
 
+  if (process.env.VERCEL) {
+    // Deployed without BLOB_READ_WRITE_TOKEN configured yet — the local-disk
+    // fallback below would crash trying to write to a read-only filesystem.
+    // Fail this one request clearly rather than let the underlying ENOENT
+    // propagate as an opaque 500.
+    throw new Error(
+      'File storage is not configured for this deployment yet (BLOB_READ_WRITE_TOKEN missing). Screenshot upload is unavailable until Vercel Blob is connected.'
+    );
+  }
+
   ensureLocalUploadDir();
   const destination = path.join(uploadDir, storageFilename);
   fs.copyFileSync(tmpFilePath, destination);
